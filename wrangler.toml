@@ -1,0 +1,14 @@
+name = 'abg-wilson'
+
+main = 'index.js'
+
+compatibility_date = '2025-03-13'
+
+[env.production]
+workers_dev = false
+
+[env.development]
+workers_dev = true
+
+# Configuración para Cloudflare Pages
+pages_build_output_dir = "dist"
