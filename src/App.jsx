@@ -12,6 +12,7 @@ import ProcessSearch from './components/ProcessSearch';
 import Chat from './components/Chat';
 import Testimonials from './components/Testimonials';
 import Forum from './components/Forum';
+import TopicDetail from './components/Forum/TopicDetail';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import JudicialNews from './components/JudicialNews';
 import Afiliados from './components/Afiliados';
@@ -149,6 +150,7 @@ function App() {
               <Route path="/contacto" element={<ContactPage />} />
               <Route path="/testimonios" element={<Testimonials />} />
               <Route path="/foro" element={<Forum />} />
+              <Route path="/foro/tema/:topicId" element={<TopicDetail />} />
               <Route path="/privacidad" element={<PrivacyPolicy />} />
               <Route path="/terminos" element={<TerminosCondiciones />} />
               <Route path="/seguridad" element={<Seguridad />} />
