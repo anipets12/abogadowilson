@@ -27,19 +27,39 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     try {
       // Validación básica
       if (!email) throw new Error('El correo electrónico es obligatorio');
       if (!password) throw new Error('La contraseña es obligatoria');
-      
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+
+      // Add retry mechanism
+      const maxRetries = 3;
+      let retryCount = 0;
+      let response;
+
+      while (retryCount < maxRetries) {
+        try {
+          response = await supabase.auth.signInWithPassword({
+            email,
+            password
+          });
+          break;
+        } catch (err) {
+          retryCount++;
+          if (retryCount === maxRetries) throw err;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (response.error) throw response.error;
+
+      // Add Cloudflare worker session storage
+      await fetch(`${process.env.REACT_APP_CLOUDFLARE_WORKER_URL}/set-session`, {
+        method: 'POST',
+        body: JSON.stringify(response.data.session)
       });
-      
-      if (signInError) throw signInError;
-      
+
       toast.success('Inicio de sesión exitoso');
       navigate('/dashboard');
     } catch (err) {

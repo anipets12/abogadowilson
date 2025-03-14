@@ -35,64 +35,52 @@ const Register = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     try {
-      // Validaciones básicas
-      if (!fullName) throw new Error('El nombre completo es obligatorio');
-      if (!email) throw new Error('El correo electrónico es obligatorio');
-      if (!password) throw new Error('La contraseña es obligatoria');
-      if (password !== confirmPassword) throw new Error('Las contraseñas no coinciden');
-      if (!validatePassword(password)) {
-        throw new Error('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial');
+      // Basic validations
+      if (!fullName) throw new Error('Full name is required');
+      if (!email) throw new Error('Email is required');
+      if (!password) throw new Error('Password is required');
+      if (password !== confirmPassword) throw new Error('Passwords do not match');
+      if (!validatePassword(password)) throw new Error('Password must be at least 8 characters with uppercase, lowercase, number and special character');
+      if (!acceptTerms) throw new Error('You must accept the terms and conditions');
+
+      // Add retry mechanism
+      const maxRetries = 3;
+      let retryCount = 0;
+      let response;
+
+      while (retryCount < maxRetries) {
+        try {
+          response = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: fullName
+              }
+            }
+          });
+          break;
+        } catch (err) {
+          retryCount++;
+          if (retryCount === maxRetries) throw err;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
-      if (!acceptTerms) throw new Error('Debe aceptar los términos y condiciones');
-      
-      // Registro de usuario
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
+
+      if (response.error) throw response.error;
+
+      // Add Cloudflare worker session storage
+      await fetch(`${process.env.REACT_APP_CLOUDFLARE_WORKER_URL}/set-session`, {
+        method: 'POST',
+        body: JSON.stringify(response.data.session)
       });
-      
-      if (signUpError) throw signUpError;
 
-      // Crear perfil de usuario en la base de datos
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([
-          { 
-            id: data.user.id, 
-            full_name: fullName, 
-            email: email,
-            created_at: new Date().toISOString()
-          }
-        ]);
-      
-      if (profileError) throw profileError;
-
-      // Inicializar tokens para el usuario
-      const { error: tokenError } = await supabase
-        .from('user_tokens')
-        .insert([
-          { 
-            user_id: data.user.id, 
-            tokens_remaining: 3,
-            last_refill: new Date().toISOString()
-          }
-        ]);
-      
-      if (tokenError) throw tokenError;
-      
-      toast.success('Registro exitoso. Por favor verifique su correo electrónico para confirmar su cuenta.');
-      navigate('/login');
-    } catch (err) {
-      console.error('Error de registro:', err.message);
-      setError(err.message);
-      toast.error(`Error: ${err.message}`);
+      navigate('/verify-email');
+    } catch (error) {
+      setError(error.message || 'Registration failed. Please try again.');
+      console.error('Registration error:', error);
     } finally {
       setLoading(false);
     }

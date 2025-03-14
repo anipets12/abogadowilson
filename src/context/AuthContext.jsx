@@ -19,13 +19,26 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-        
-        if (user) {
-          // Obtener tokens del usuario
-          const { tokens } = await getUserTokens(user.id);
-          setTokens(tokens);
+        // Check Cloudflare worker for existing session
+        const sessionResponse = await fetch(`${process.env.REACT_APP_CLOUDFLARE_WORKER_URL}/get-session`);
+        const session = await sessionResponse.json();
+
+        if (session) {
+          const { data: { user } } = await supabase.auth.setSession(session);
+          setUser(user);
+
+          if (user) {
+            const { tokens } = await getUserTokens(user.id);
+            setTokens(tokens);
+          }
+        } else {
+          const { data: { user } } = await supabase.auth.getUser();
+          setUser(user);
+
+          if (user) {
+            const { tokens } = await getUserTokens(user.id);
+            setTokens(tokens);
+          }
         }
       } catch (error) {
         console.error('Error fetching auth user:', error);
