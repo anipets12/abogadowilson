@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
 import { Toaster, toast } from 'react-hot-toast';
 
 import Navbar from './components/Navigation/Navbar';
@@ -50,67 +49,30 @@ import LiveChat from './components/Chat/LiveChat';
 // Nuevo componente de pago
 import CheckoutForm from './components/Payment/CheckoutForm';
 
-// Configuración de Supabase con manejo de errores
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Error de configuración: Variables de entorno de Supabase no encontradas.');
-}
-
-export const supabase = createClient(
-  supabaseUrl || 'https://svzdqpaqtghtgnbmojxl.supabase.co',
-  supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2emRxcGFxdGdodGduYm1vanh*IiwicmVsZSI6ImFub24iLCJpYXQiOjE2ODQyNTQ0NjQsImV4cCI6MTk5OTgzMDQ2NH0.J7vYdTy9mHpXIWZzM4kxwT0NS6pcS-L78_vwVRRokxo'
-);
+// Importamos el contexto de autenticación
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 function App() {
-  const [session, setSession] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
 
-  useEffect(() => {
-    // Establecer la sesión inicial
-    const setInitialSession = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Error al obtener la sesión:', error.message);
-        } else {
-          setSession(data.session);
-        }
-      } catch (err) {
-        console.error('Error al conectar con Supabase:', err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    setInitialSession();
-
-    // Escuchar cambios en la autenticación
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
-        setSession(newSession);
-        if (event === 'SIGNED_IN') {
-          toast.success('Sesión iniciada correctamente');
-        } else if (event === 'SIGNED_OUT') {
-          toast.success('Sesión cerrada correctamente');
-        }
-      }
-    );
-
-    return () => {
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
-      }
-    };
-  }, []);
+function AppContent() {
+  const { user, loading: isLoading } = useAuth();
 
   // Función para proteger rutas que requieren autenticación
   const ProtectedRoute = ({ children }) => {
     if (isLoading) {
-      return <div className="flex justify-center items-center h-screen">Cargando...</div>;
+      return <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <span className="ml-3 text-lg">Cargando...</span>
+      </div>;
     }
     
-    if (!session) {
+    if (!user) {
       toast.error('Debes iniciar sesión para acceder a esta página');
       return <Navigate to="/login" replace />;
     }
