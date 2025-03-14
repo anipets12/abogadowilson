@@ -23,6 +23,22 @@ const Login = () => {
     }
   }, [user, navigate]);
 
+  // Función para manejar reintentos en caso de errores de red
+  const executeWithRetry = async (fn, maxRetries = 3) => {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (err) {
+        console.log(`Intento ${i + 1} fallido. Reintentando...`);
+        lastError = err;
+        // Esperar antes de reintentar (1s, 2s, 4s - backoff exponencial)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+      }
+    }
+    throw lastError;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -33,46 +49,39 @@ const Login = () => {
       if (!email) throw new Error('El correo electrónico es obligatorio');
       if (!password) throw new Error('La contraseña es obligatoria');
 
-      // Add retry mechanism
-      const maxRetries = 3;
-      let retryCount = 0;
-      let response;
-
-      while (retryCount < maxRetries) {
-        try {
-          response = await supabase.auth.signInWithPassword({
-            email,
-            password
-          });
-          break;
-        } catch (err) {
-          retryCount++;
-          if (retryCount === maxRetries) throw err;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+      // Iniciar sesión con reintento en caso de error de red
+      const { data, error: signInError } = await executeWithRetry(() => 
+        supabase.auth.signInWithPassword({
+          email,
+          password
+        })
+      );
+      
+      if (signInError) throw signInError;
+      
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+      } else {
+        localStorage.removeItem('rememberMe');
       }
-
-      if (response.error) throw response.error;
-
-      // Add Cloudflare worker session storage
-      await fetch(`${process.env.REACT_APP_CLOUDFLARE_WORKER_URL}/set-session`, {
-        method: 'POST',
-        body: JSON.stringify(response.data.session)
-      });
 
       toast.success('Inicio de sesión exitoso');
       navigate('/dashboard');
     } catch (err) {
       console.error('Error de inicio de sesión:', err.message);
       setError(
-        err.message === 'Invalid login credentials'
+        err.message === 'Invalid login credentials' || err.message.includes('invalid')
           ? 'Credenciales inválidas. Por favor, verifica tu correo y contraseña.'
-          : err.message
+          : err.message.includes('fetch') || err.message.includes('network')
+            ? 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
+            : `Error: ${err.message}`
       );
       toast.error(
-        err.message === 'Invalid login credentials'
+        err.message === 'Invalid login credentials' || err.message.includes('invalid')
           ? 'Credenciales inválidas. Por favor, verifica tu correo y contraseña.'
-          : `Error: ${err.message}`
+          : err.message.includes('fetch') || err.message.includes('network')
+            ? 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
+            : `Error: ${err.message}`
       );
     } finally {
       setLoading(false);
@@ -83,25 +92,17 @@ const Login = () => {
     try {
       setLoading(true);
       
-      if (provider === 'google') {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
+      // Improved error handling for social login with retry logic
+      const { data, error } = await executeWithRetry(() => 
+        supabase.auth.signInWithOAuth({
+          provider: provider,
           options: {
             redirectTo: `${window.location.origin}/dashboard`,
           },
-        });
-        
-        if (error) throw error;
-      } else if (provider === 'facebook') {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'facebook',
-          options: {
-            redirectTo: `${window.location.origin}/dashboard`,
-          },
-        });
-        
-        if (error) throw error;
-      }
+        })
+      );
+      
+      if (error) throw error;
     } catch (err) {
       console.error(`Error en login con ${provider}:`, err.message);
       toast.error(`Error al iniciar sesión con ${provider}: ${err.message}`);

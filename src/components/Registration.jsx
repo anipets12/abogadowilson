@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '../App';
+import { supabase } from '../config/supabase';
+import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 export default function Registration() {
   const [formData, setFormData] = useState({
@@ -17,6 +19,7 @@ export default function Registration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -24,6 +27,22 @@ export default function Registration() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  // Función para manejar reintentos en caso de errores de red
+  const executeWithRetry = async (fn, maxRetries = 3) => {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (err) {
+        console.log(`Intento ${i + 1} fallido. Reintentando...`);
+        lastError = err;
+        // Esperar antes de reintentar (1s, 2s, 4s - backoff exponencial)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+      }
+    }
+    throw lastError;
   };
 
   const handleSubmit = async (e) => {
@@ -38,22 +57,34 @@ export default function Registration() {
     }
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            address: formData.address
+      // Validar datos antes de enviar al servidor
+      if (formData.password.length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres');
+      }
+
+      // Usar la función con reintentos para el registro
+      const { data, error: signUpError } = await executeWithRetry(() => 
+        supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              phone: formData.phone,
+              address: formData.address
+            }
           }
-        }
-      });
+        })
+      );
 
       if (signUpError) throw signUpError;
 
+      // Mostrar mensaje de éxito
+      toast.success('Usuario registrado con éxito. Revisa tu correo para verificar tu cuenta.');
       setSuccess(true);
+      
+      // Limpiar formulario después de registro exitoso
       setFormData({
         firstName: '',
         lastName: '',
@@ -65,7 +96,19 @@ export default function Registration() {
         acceptTerms: false
       });
     } catch (error) {
-      setError(error.message);
+      console.error('Error de registro:', error.message);
+      
+      // Mensajes de error más amigables para el usuario
+      if (error.message.includes('email')) {
+        setError('El correo electrónico ingresado ya está en uso o no es válido.');
+        toast.error('El correo electrónico ingresado ya está en uso o no es válido.');
+      } else if (error.message.includes('fetch') || error.message.includes('network')) {
+        setError('Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.');
+        toast.error('Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.');
+      } else {
+        setError(error.message);
+        toast.error(error.message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -174,7 +217,7 @@ export default function Registration() {
                       onChange={handleChange}
                       className="input-field"
                       required
-                      minLength={8}
+                      minLength={6}
                     />
                   </div>
                   <div>
@@ -188,7 +231,7 @@ export default function Registration() {
                       onChange={handleChange}
                       className="input-field"
                       required
-                      minLength={8}
+                      minLength={6}
                     />
                   </div>
                 </div>

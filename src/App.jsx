@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
+import { supabase } from './config/supabase';
 
 import Navbar from './components/Navigation/Navbar';
 import Hero from './components/Hero';
@@ -53,6 +54,25 @@ import CheckoutForm from './components/Payment/CheckoutForm';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function App() {
+  // Solo verificar que la configuración de Supabase sea válida al iniciar
+  useEffect(() => {
+    const checkSupabaseConnection = async () => {
+      try {
+        // Realizar una consulta simple para verificar la conexión
+        const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+        if (error) {
+          console.error('Error al conectar con Supabase:', error.message);
+        } else {
+          console.log('Conexión a Supabase establecida correctamente');
+        }
+      } catch (err) {
+        console.error('Error al verificar la conexión con Supabase:', err.message);
+      }
+    };
+    
+    checkSupabaseConnection();
+  }, []);
+
   return (
     <AuthProvider>
       <AppContent />

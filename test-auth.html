@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Autenticación</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de Autenticación Supabase</h1>
+    
+    <div class="card">
+        <h2>Registrarse</h2>
+        <div class="form-group">
+            <label for="register-name">Nombre completo:</label>
+            <input type="text" id="register-name" placeholder="Ingrese su nombre completo">
+        </div>
+        <div class="form-group">
+            <label for="register-email">Correo electrónico:</label>
+            <input type="email" id="register-email" placeholder="Ingrese su correo electrónico">
+        </div>
+        <div class="form-group">
+            <label for="register-password">Contraseña:</label>
+            <input type="password" id="register-password" placeholder="Ingrese su contraseña">
+        </div>
+        <button id="register-btn">Registrarse</button>
+        <div id="register-result"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Iniciar Sesión</h2>
+        <div class="form-group">
+            <label for="login-email">Correo electrónico:</label>
+            <input type="email" id="login-email" placeholder="Ingrese su correo electrónico">
+        </div>
+        <div class="form-group">
+            <label for="login-password">Contraseña:</label>
+            <input type="password" id="login-password" placeholder="Ingrese su contraseña">
+        </div>
+        <button id="login-btn">Iniciar Sesión</button>
+        <div id="login-result"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Usuario Actual</h2>
+        <button id="get-user-btn">Verificar Usuario</button>
+        <div id="user-result"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Cerrar Sesión</h2>
+        <button id="logout-btn">Cerrar Sesión</button>
+        <div id="logout-result"></div>
+    </div>
+
+    <script>
+        // Configuración de Supabase
+        const SUPABASE_URL = 'https://svzdqpaqtghtgnbmojxl.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2emRxcGFxdGdodGdubm1vanhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTE0NzE5OTEsImV4cCI6MTk2NzA0Nzk5MX0.OqH_m0RTfF0ROhjBU3p9RoNYi8T9xSVsQRoAYRCG4DY';
+        
+        // Inicialización de Supabase
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Función para implementar reintentos
+        const withRetry = async (fn, maxRetries = 3, delay = 1000) => {
+            let lastError;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    return await fn();
+                } catch (error) {
+                    console.log(`Intento ${i + 1} fallido: ${error.message}. Reintentando...`);
+                    lastError = error;
+                    if (i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+            throw lastError;
+        };
+        
+        // Registro
+        document.getElementById('register-btn').addEventListener('click', async () => {
+            const fullName = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const resultElement = document.getElementById('register-result');
+            
+            if (!fullName || !email || !password) {
+                resultElement.className = 'error';
+                resultElement.textContent = 'Todos los campos son obligatorios';
+                return;
+            }
+            
+            try {
+                resultElement.textContent = 'Registrando...';
+                
+                const { data, error } = await withRetry(() => 
+                    supabase.auth.signUp({
+                        email,
+                        password,
+                        options: {
+                            data: { full_name: fullName },
+                            emailRedirectTo: window.location.origin
+                        }
+                    })
+                );
+                
+                if (error) throw error;
+                
+                resultElement.className = 'success';
+                resultElement.textContent = 'Registro exitoso. Por favor, verifica tu correo electrónico para confirmar tu cuenta.';
+                
+                // Crear perfil de usuario
+                if (data && data.user) {
+                    await supabase
+                        .from('profiles')
+                        .insert([{ 
+                            id: data.user.id,
+                            full_name: fullName,
+                            email: email,
+                            created_at: new Date().toISOString()
+                        }]);
+                }
+            } catch (error) {
+                resultElement.className = 'error';
+                resultElement.textContent = `Error: ${error.message}`;
+            }
+        });
+        
+        // Inicio de sesión
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const resultElement = document.getElementById('login-result');
+            
+            if (!email || !password) {
+                resultElement.className = 'error';
+                resultElement.textContent = 'Todos los campos son obligatorios';
+                return;
+            }
+            
+            try {
+                resultElement.textContent = 'Iniciando sesión...';
+                
+                const { data, error } = await withRetry(() => 
+                    supabase.auth.signInWithPassword({
+                        email,
+                        password
+                    })
+                );
+                
+                if (error) throw error;
+                
+                resultElement.className = 'success';
+                resultElement.textContent = 'Inicio de sesión exitoso';
+            } catch (error) {
+                resultElement.className = 'error';
+                resultElement.textContent = `Error: ${error.message}`;
+            }
+        });
+        
+        // Obtener usuario actual
+        document.getElementById('get-user-btn').addEventListener('click', async () => {
+            const resultElement = document.getElementById('user-result');
+            
+            try {
+                resultElement.textContent = 'Verificando...';
+                
+                const { data, error } = await withRetry(() => 
+                    supabase.auth.getUser()
+                );
+                
+                if (error) throw error;
+                
+                if (data.user) {
+                    resultElement.className = 'success';
+                    resultElement.textContent = `Usuario actual: ${data.user.email} (${data.user.id})`;
+                    
+                    // Mostrar datos adicionales si los hay
+                    if (data.user.user_metadata && data.user.user_metadata.full_name) {
+                        resultElement.textContent += `\nNombre: ${data.user.user_metadata.full_name}`;
+                    }
+                } else {
+                    resultElement.className = 'error';
+                    resultElement.textContent = 'No hay ningún usuario autenticado';
+                }
+            } catch (error) {
+                resultElement.className = 'error';
+                resultElement.textContent = `Error: ${error.message}`;
+            }
+        });
+        
+        // Cerrar sesión
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            const resultElement = document.getElementById('logout-result');
+            
+            try {
+                resultElement.textContent = 'Cerrando sesión...';
+                
+                const { error } = await withRetry(() => 
+                    supabase.auth.signOut()
+                );
+                
+                if (error) throw error;
+                
+                resultElement.className = 'success';
+                resultElement.textContent = 'Sesión cerrada correctamente';
+            } catch (error) {
+                resultElement.className = 'error';
+                resultElement.textContent = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

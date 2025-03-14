@@ -3,6 +3,22 @@ import { supabase } from '../config/supabase';
 // Número máximo de tokens
 const MAX_TOKENS = 3;
 
+// Función para manejar reintentos en caso de errores de red
+const executeWithRetry = async (fn, maxRetries = 3) => {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      console.log(`Intento ${i + 1} fallido en tokenService. Reintentando...`);
+      lastError = err;
+      // Esperar antes de reintentar (1s, 2s, 4s - backoff exponencial)
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+    }
+  }
+  throw lastError;
+};
+
 /**
  * Inicializa los tokens de un usuario si no existen
  * @param {string} userId - ID del usuario
@@ -11,11 +27,13 @@ const MAX_TOKENS = 3;
 export const initializeUserTokens = async (userId) => {
   try {
     // Verificar si el usuario ya tiene tokens asignados
-    const { data: existingTokens, error: fetchError } = await supabase
-      .from('user_tokens')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    const { data: existingTokens, error: fetchError } = await executeWithRetry(() => 
+      supabase
+        .from('user_tokens')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+    );
 
     if (fetchError && fetchError.code !== 'PGRST116') {
       console.error('Error al verificar tokens del usuario:', fetchError);
@@ -28,17 +46,19 @@ export const initializeUserTokens = async (userId) => {
     }
 
     // Si no tiene tokens, inicializar con el máximo
-    const { data: newTokenData, error: insertError } = await supabase
-      .from('user_tokens')
-      .insert([
-        { 
-          user_id: userId, 
-          tokens_remaining: MAX_TOKENS,
-          last_refill: new Date().toISOString()
-        }
-      ])
-      .select()
-      .single();
+    const { data: newTokenData, error: insertError } = await executeWithRetry(() =>
+      supabase
+        .from('user_tokens')
+        .insert([
+          { 
+            user_id: userId, 
+            tokens_remaining: MAX_TOKENS,
+            last_refill: new Date().toISOString()
+          }
+        ])
+        .select()
+        .single()
+    );
 
     if (insertError) {
       console.error('Error al inicializar tokens del usuario:', insertError);
@@ -65,11 +85,13 @@ export const getUserTokens = async (userId) => {
     }
 
     // Verificar si el usuario ya tiene tokens asignados
-    const { data, error } = await supabase
-      .from('user_tokens')
-      .select('tokens_remaining')
-      .eq('user_id', userId)
-      .single();
+    const { data, error } = await executeWithRetry(() =>
+      supabase
+        .from('user_tokens')
+        .select('tokens_remaining')
+        .eq('user_id', userId)
+        .single()
+    );
 
     if (error) {
       // Si el error es que no se encontró el registro, inicializar tokens
@@ -126,12 +148,14 @@ export const useToken = async (userId) => {
 
     // Actualizar tokens
     const newTokenAmount = tokens - 1;
-    const { data, error: updateError } = await supabase
-      .from('user_tokens')
-      .update({ tokens_remaining: newTokenAmount })
-      .eq('user_id', userId)
-      .select()
-      .single();
+    const { data, error: updateError } = await executeWithRetry(() =>
+      supabase
+        .from('user_tokens')
+        .update({ tokens_remaining: newTokenAmount })
+        .eq('user_id', userId)
+        .select()
+        .single()
+    );
 
     if (updateError) {
       console.error('Error al actualizar tokens del usuario:', updateError);
@@ -158,81 +182,93 @@ export const useToken = async (userId) => {
 };
 
 /**
- * Recarga los tokens de un usuario al máximo
+ * Recarga los tokens de un usuario
  * @param {string} userId - ID del usuario
- * @returns {Promise<{success: boolean, tokensRemaining: number, error: Error|null}>}
+ * @param {number} amount - Cantidad de tokens a añadir (predeterminado MAX_TOKENS)
+ * @returns {Promise<{success: boolean, newTotal: number, error: Error|null}>}
  */
-export const refillTokens = async (userId) => {
+export const refillTokens = async (userId, amount = MAX_TOKENS) => {
   try {
     // Si no hay userId, no hacer nada
     if (!userId) {
       return { 
         success: false, 
-        tokensRemaining: 0, 
+        newTotal: 0, 
         error: 'Usuario no autenticado' 
       };
     }
 
-    // Actualizar tokens al máximo
-    const { data, error } = await supabase
-      .from('user_tokens')
-      .update({ 
-        tokens_remaining: MAX_TOKENS,
-        last_refill: new Date().toISOString()
-      })
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (error) {
-      // Si el error es que no se encontró el registro, inicializar tokens
-      if (error.code === 'PGRST116') {
+    // Primero verificamos los tokens actuales
+    const { tokens: currentTokens, error: getError } = await getUserTokens(userId);
+    
+    if (getError) {
+      // Si el usuario no tiene tokens, inicializarlos
+      if (getError.code === 'PGRST116') {
         const { tokens, error: initError } = await initializeUserTokens(userId);
         
         if (initError) {
           return { 
             success: false, 
-            tokensRemaining: 0, 
+            newTotal: 0, 
             error: initError.message || 'Error al inicializar tokens' 
           };
         }
         
         return { 
           success: true, 
-          tokensRemaining: tokens, 
+          newTotal: tokens, 
           error: null 
         };
       }
       
-      console.error('Error al recargar tokens del usuario:', error);
       return { 
         success: false, 
-        tokensRemaining: 0, 
-        error: error.message || 'Error al recargar tokens' 
+        newTotal: 0, 
+        error: getError.message || 'Error al obtener tokens actuales' 
+      };
+    }
+
+    // Actualizar tokens
+    const newTokenAmount = currentTokens + amount;
+    const { data, error: updateError } = await executeWithRetry(() =>
+      supabase
+        .from('user_tokens')
+        .update({ 
+          tokens_remaining: newTokenAmount,
+          last_refill: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .select()
+        .single()
+    );
+
+    if (updateError) {
+      console.error('Error al recargar tokens del usuario:', updateError);
+      return { 
+        success: false, 
+        newTotal: currentTokens, 
+        error: updateError.message || 'Error al recargar tokens' 
       };
     }
 
     return { 
       success: true, 
-      tokensRemaining: data.tokens_remaining, 
+      newTotal: data.tokens_remaining, 
       error: null 
     };
   } catch (error) {
     console.error('Error inesperado al recargar tokens:', error);
     return { 
       success: false, 
-      tokensRemaining: 0, 
+      newTotal: 0, 
       error: error.message || 'Error inesperado al recargar tokens' 
     };
   }
 };
 
-// Exportar funciones para usar en el hook
-const useToken = {
+export {
   getUserTokens,
   useToken,
   refillTokens,
   initializeUserTokens
 };
-
-export { useToken };

@@ -31,56 +31,88 @@ const Register = () => {
     return passwordRegex.test(password);
   };
 
+  // Función para manejar reintentos en caso de errores de red
+  const executeWithRetry = async (fn, maxRetries = 3) => {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (err) {
+        console.log(`Intento ${i + 1} fallido. Reintentando...`);
+        lastError = err;
+        // Esperar antes de reintentar (1s, 2s, 4s - backoff exponencial)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+      }
+    }
+    throw lastError;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      // Basic validations
-      if (!fullName) throw new Error('Full name is required');
-      if (!email) throw new Error('Email is required');
-      if (!password) throw new Error('Password is required');
-      if (password !== confirmPassword) throw new Error('Passwords do not match');
-      if (!validatePassword(password)) throw new Error('Password must be at least 8 characters with uppercase, lowercase, number and special character');
-      if (!acceptTerms) throw new Error('You must accept the terms and conditions');
+      // Validaciones básicas
+      if (!fullName) throw new Error('El nombre completo es obligatorio');
+      if (!email) throw new Error('El correo electrónico es obligatorio');
+      if (!password) throw new Error('La contraseña es obligatoria');
+      if (password !== confirmPassword) throw new Error('Las contraseñas no coinciden');
+      if (!validatePassword(password)) {
+        throw new Error('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial');
+      }
+      if (!acceptTerms) throw new Error('Debe aceptar los términos y condiciones');
 
-      // Add retry mechanism
-      const maxRetries = 3;
-      let retryCount = 0;
-      let response;
+      // Registrar usuario con reintentos en caso de error de red
+      const { data, error: signUpError } = await executeWithRetry(() => 
+        supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName
+            },
+            emailRedirectTo: `${window.location.origin}/auth/callback`
+          }
+        })
+      );
+      
+      if (signUpError) throw signUpError;
 
-      while (retryCount < maxRetries) {
-        try {
-          response = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                full_name: fullName
-              }
+      // Si el registro fue exitoso, crear perfil de usuario
+      if (data && data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            { 
+              id: data.user.id,
+              full_name: fullName,
+              email: email,
+              created_at: new Date().toISOString()
             }
-          });
-          break;
-        } catch (err) {
-          retryCount++;
-          if (retryCount === maxRetries) throw err;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+          ]);
+        
+        if (profileError) console.error('Error al crear perfil:', profileError);
       }
 
-      if (response.error) throw response.error;
-
-      // Add Cloudflare worker session storage
-      await fetch(`${process.env.REACT_APP_CLOUDFLARE_WORKER_URL}/set-session`, {
-        method: 'POST',
-        body: JSON.stringify(response.data.session)
-      });
-
+      toast.success('Registro exitoso. Por favor, verifica tu correo electrónico para completar el registro.');
       navigate('/verify-email');
-    } catch (error) {
-      setError(error.message || 'Registration failed. Please try again.');
-      console.error('Registration error:', error);
+    } catch (err) {
+      console.error('Error de registro:', err.message);
+      setError(
+        err.message.includes('already registered') 
+          ? 'Este correo electrónico ya está registrado. Por favor, inicia sesión o usa otra dirección de correo.' 
+          : err.message.includes('fetch') || err.message.includes('network')
+            ? 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
+            : `Error: ${err.message}`
+      );
+      toast.error(
+        err.message.includes('already registered') 
+          ? 'Este correo electrónico ya está registrado. Por favor, inicia sesión o usa otra dirección de correo.' 
+          : err.message.includes('fetch') || err.message.includes('network')
+            ? 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
+            : `Error: ${err.message}`
+      );
     } finally {
       setLoading(false);
     }
@@ -90,25 +122,17 @@ const Register = () => {
     try {
       setLoading(true);
       
-      if (provider === 'google') {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
+      // Implementación unificada para proveedores sociales
+      const { data, error } = await executeWithRetry(() => 
+        supabase.auth.signInWithOAuth({
+          provider: provider,
           options: {
             redirectTo: `${window.location.origin}/dashboard`,
           },
-        });
-        
-        if (error) throw error;
-      } else if (provider === 'facebook') {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'facebook',
-          options: {
-            redirectTo: `${window.location.origin}/dashboard`,
-          },
-        });
-        
-        if (error) throw error;
-      }
+        })
+      );
+      
+      if (error) throw error;
     } catch (err) {
       console.error(`Error en registro con ${provider}:`, err.message);
       toast.error(`Error al registrarse con ${provider}: ${err.message}`);

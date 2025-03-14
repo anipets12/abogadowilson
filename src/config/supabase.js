@@ -1,32 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://your-supabase-url.supabase.co';
-const supabaseKey = process.env.REACT_APP_SUPABASE_KEY || 'your-supabase-key';
+// Fix the URL to match the format expected by Supabase
+const supabaseUrl = 'https://svzdqpaqtghtgnbmojxl.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2emRxcGFxdGdodGdubm1vanhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTE0NzE5OTEsImV4cCI6MTk2NzA0Nzk5MX0.OqH_m0RTfF0ROhjBU3p9RoNYi8T9xSVsQRoAYRCG4DY';
 
-const supabase = createClient(supabaseUrl, supabaseKey, {
+// Create the Supabase client with proper configuration for Cloudflare
+export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'pkce',
-    storage: {
-      getItem: async (key) => {
-        const response = await fetch(`https://your-cloudflare-worker.com/get?key=${key}`);
-        return response.text();
-      },
-      setItem: async (key, value) => {
-        await fetch(`https://your-cloudflare-worker.com/set?key=${key}`, {
-          method: 'POST',
-          body: value
-        });
-      },
-      removeItem: async (key) => {
-        await fetch(`https://your-cloudflare-worker.com/delete?key=${key}`, {
-          method: 'DELETE'
-        });
-      }
-    }
-  }
+    // Use a cross-browser compatible approach for storage
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined
+  },
+  // Add these settings to fix CORS and network issues
+  global: {
+    fetch: fetch,
+    headers: {
+      'X-Client-Info': 'supabase-js/2.0.0',
+    },
+  },
 });
 
 export default supabase;
