@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import supabase, { fetchData, insertData, getCurrentUser } from './services/supabase';
+import supabase, { fetchData, insertData, getCurrentUser } from '../config/supabase';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 

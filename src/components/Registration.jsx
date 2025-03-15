@@ -19,6 +19,7 @@ export default function Registration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [networkRetry, setNetworkRetry] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -27,13 +28,17 @@ export default function Registration() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Limpiar errores al cambiar datos
+    if (error) setError('');
   };
 
   // Función para manejar reintentos en caso de errores de red
-  const executeWithRetry = async (fn, maxRetries = 3) => {
+  const executeWithRetry = async (fn, maxRetries = 5) => {
     let lastError;
     for (let i = 0; i < maxRetries; i++) {
       try {
+        setNetworkRetry(i > 0);
         return await fn();
       } catch (err) {
         console.log(`Intento ${i + 1} fallido. Reintentando...`);
@@ -42,6 +47,7 @@ export default function Registration() {
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
       }
     }
+    setNetworkRetry(false);
     throw lastError;
   };
 
@@ -62,6 +68,8 @@ export default function Registration() {
         throw new Error('La contraseña debe tener al menos 6 caracteres');
       }
 
+      console.log('Intentando registrar usuario:', formData.email);
+      
       // Usar la función con reintentos para el registro
       const { data, error: signUpError } = await executeWithRetry(() => 
         supabase.auth.signUp({
@@ -73,13 +81,19 @@ export default function Registration() {
               last_name: formData.lastName,
               phone: formData.phone,
               address: formData.address
-            }
+            },
+            emailRedirectTo: `${window.location.origin}/login`
           }
         })
       );
 
-      if (signUpError) throw signUpError;
+      if (signUpError) {
+        console.error('Error de registro Supabase:', signUpError);
+        throw signUpError;
+      }
 
+      console.log('Registro exitoso:', data);
+      
       // Mostrar mensaje de éxito
       toast.success('Usuario registrado con éxito. Revisa tu correo para verificar tu cuenta.');
       setSuccess(true);
@@ -95,22 +109,30 @@ export default function Registration() {
         address: '',
         acceptTerms: false
       });
+      
+      // Opcionalmente redirigir al usuario después de un tiempo
+      setTimeout(() => {
+        navigate('/login');
+      }, 5000);
     } catch (error) {
-      console.error('Error de registro:', error.message);
+      console.error('Error completo de registro:', error);
       
       // Mensajes de error más amigables para el usuario
-      if (error.message.includes('email')) {
-        setError('El correo electrónico ingresado ya está en uso o no es válido.');
-        toast.error('El correo electrónico ingresado ya está en uso o no es válido.');
-      } else if (error.message.includes('fetch') || error.message.includes('network')) {
-        setError('Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.');
-        toast.error('Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.');
+      let errorMessage;
+      
+      if (error.message && error.message.includes('email')) {
+        errorMessage = 'El correo electrónico ingresado ya está en uso o no es válido';
+      } else if (error.message && (error.message.includes('fetch') || error.message.includes('network') || error.name === 'TypeError')) {
+        errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente';
       } else {
-        setError(error.message);
-        toast.error(error.message);
+        errorMessage = error.message || 'Error al registrar usuario';
       }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
+      setNetworkRetry(false);
     }
   };
 

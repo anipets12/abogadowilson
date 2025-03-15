@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
-import { supabase } from './config/supabase';
+import { supabase, testSupabaseConnection } from './config/supabase';
 
 import Navbar from './components/Navigation/Navbar';
 import Hero from './components/Hero';
@@ -33,6 +33,7 @@ import ConsultasTransito from './components/ConsultasTransito';
 import ConsultasCiviles from './components/ConsultasCiviles';
 import Login from './components/Auth/Login';
 import ForgotPassword from './components/Auth/ForgotPassword';
+import ResetPassword from './components/Auth/ResetPassword';
 import TerminosCondiciones from './components/TerminosCondiciones';
 import Seguridad from './components/Seguridad';
 
@@ -54,23 +55,17 @@ import CheckoutForm from './components/Payment/CheckoutForm';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function App() {
-  // Solo verificar que la configuración de Supabase sea válida al iniciar
+  // Verificar conexión con Supabase al iniciar
   useEffect(() => {
-    const checkSupabaseConnection = async () => {
-      try {
-        // Realizar una consulta simple para verificar la conexión
-        const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
-        if (error) {
-          console.error('Error al conectar con Supabase:', error.message);
-        } else {
-          console.log('Conexión a Supabase establecida correctamente');
-        }
-      } catch (err) {
-        console.error('Error al verificar la conexión con Supabase:', err.message);
+    const verifySupabaseConnection = async () => {
+      const result = await testSupabaseConnection();
+      if (!result.success) {
+        console.error('No se pudo conectar con Supabase:', result.error);
+        // No mostrar toast al usuario para no asustarlo con mensajes técnicos
       }
     };
     
-    checkSupabaseConnection();
+    verifySupabaseConnection();
   }, []);
 
   return (
@@ -143,6 +138,7 @@ function AppContent() {
               <Route path="/registro" element={<Registration />} />
               <Route path="/login" element={<Login />} />
               <Route path="/recuperar-contrasena" element={<ForgotPassword />} />
+              <Route path="/cambiar-contrasena" element={<ResetPassword />} />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <DashboardPage />

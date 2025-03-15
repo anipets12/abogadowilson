@@ -12,6 +12,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState(null);
+  const [networkRetry, setNetworkRetry] = useState(false);
   
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -23,11 +24,19 @@ const Login = () => {
     }
   }, [user, navigate]);
 
+  // Limpiar errores si el usuario cambia credenciales
+  useEffect(() => {
+    if (error) {
+      setError(null);
+    }
+  }, [email, password]);
+
   // Función para manejar reintentos en caso de errores de red
-  const executeWithRetry = async (fn, maxRetries = 3) => {
+  const executeWithRetry = async (fn, maxRetries = 5) => {
     let lastError;
     for (let i = 0; i < maxRetries; i++) {
       try {
+        setNetworkRetry(i > 0);
         return await fn();
       } catch (err) {
         console.log(`Intento ${i + 1} fallido. Reintentando...`);
@@ -36,6 +45,7 @@ const Login = () => {
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
       }
     }
+    setNetworkRetry(false);
     throw lastError;
   };
 
@@ -50,6 +60,7 @@ const Login = () => {
       if (!password) throw new Error('La contraseña es obligatoria');
 
       // Iniciar sesión con reintento en caso de error de red
+      console.log('Intentando iniciar sesión con:', email);
       const { data, error: signInError } = await executeWithRetry(() => 
         supabase.auth.signInWithPassword({
           email,
@@ -57,7 +68,10 @@ const Login = () => {
         })
       );
       
-      if (signInError) throw signInError;
+      if (signInError) {
+        console.error('Error de autenticación:', signInError);
+        throw signInError;
+      }
       
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
@@ -65,34 +79,42 @@ const Login = () => {
         localStorage.removeItem('rememberMe');
       }
 
+      console.log('Login exitoso, redirigiendo...');
       toast.success('Inicio de sesión exitoso');
-      navigate('/dashboard');
+      
+      // Pequeña espera para asegurar que los datos de sesión se guarden correctamente
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
     } catch (err) {
-      console.error('Error de inicio de sesión:', err.message);
-      setError(
-        err.message === 'Invalid login credentials' || err.message.includes('invalid')
-          ? 'Credenciales inválidas. Por favor, verifica tu correo y contraseña.'
-          : err.message.includes('fetch') || err.message.includes('network')
-            ? 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
-            : `Error: ${err.message}`
-      );
-      toast.error(
-        err.message === 'Invalid login credentials' || err.message.includes('invalid')
-          ? 'Credenciales inválidas. Por favor, verifica tu correo y contraseña.'
-          : err.message.includes('fetch') || err.message.includes('network')
-            ? 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
-            : `Error: ${err.message}`
-      );
+      console.error('Error de inicio de sesión:', err);
+      
+      // Mensajes de error mejorados y específicos
+      let errorMessage;
+      
+      if (err.message === 'Invalid login credentials' || err.message.includes('invalid')) {
+        errorMessage = 'Credenciales inválidas. Por favor, verifica tu correo y contraseña.';
+      } else if (err.message.includes('fetch') || err.message.includes('network') || err.name === 'TypeError') {
+        errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.';
+      } else {
+        errorMessage = `Error: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
+      setNetworkRetry(false);
     }
   };
   
   const handleSocialLogin = async (provider) => {
     try {
       setLoading(true);
+      setError(null);
       
       // Improved error handling for social login with retry logic
+      console.log(`Iniciando login con ${provider}...`);
       const { data, error } = await executeWithRetry(() => 
         supabase.auth.signInWithOAuth({
           provider: provider,
@@ -102,13 +124,27 @@ const Login = () => {
         })
       );
       
-      if (error) throw error;
+      if (error) {
+        console.error(`Error en OAuth con ${provider}:`, error);
+        throw error;
+      }
+      
+      // No es necesario redireccionar, Supabase lo hace automáticamente
     } catch (err) {
-      console.error(`Error en login con ${provider}:`, err.message);
-      toast.error(`Error al iniciar sesión con ${provider}: ${err.message}`);
-      setError(err.message);
+      console.error(`Error en login con ${provider}:`, err);
+      let errorMessage = `Error al iniciar sesión con ${provider}`;
+      
+      if (err.message.includes('fetch') || err.message.includes('network') || err.name === 'TypeError') {
+        errorMessage += ': Error de conexión. Por favor, verifica tu conexión a internet.';
+      } else {
+        errorMessage += `: ${err.message}`;
+      }
+      
+      toast.error(errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
+      setNetworkRetry(false);
     }
   };
 
