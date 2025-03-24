@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../config/supabase';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook } from 'react-icons/fa';
+import axios from 'axios';
 
 const Register = () => {
   const [fullName, setFullName] = useState('');
@@ -16,7 +16,12 @@ const Register = () => {
   const [acceptTerms, setAcceptTerms] = useState(false);
   
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, setUser } = useAuth();
+  
+  // Obtener código de referido de los parámetros de URL si existe
+  const queryParams = new URLSearchParams(location.search);
+  const referralCode = queryParams.get('ref');
   
   // Si el usuario ya está autenticado, redirigir al dashboard
   useEffect(() => {
@@ -63,80 +68,114 @@ const Register = () => {
       }
       if (!acceptTerms) throw new Error('Debe aceptar los términos y condiciones');
 
-      // Registrar usuario con reintentos en caso de error de red
-      const { data, error: signUpError } = await executeWithRetry(() => 
-        supabase.auth.signUp({
+      // Registrar usuario usando la API
+      const response = await executeWithRetry(() => 
+        axios.post('/api/auth/register', {
+          name: fullName,
           email,
           password,
-          options: {
-            data: {
-              full_name: fullName
-            },
-            emailRedirectTo: `${window.location.origin}/auth/callback`
+          referralCode
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
           }
         })
       );
       
-      if (signUpError) throw signUpError;
-
-      // Si el registro fue exitoso, crear perfil de usuario
-      if (data && data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            { 
-              id: data.user.id,
-              full_name: fullName,
-              email: email,
-              created_at: new Date().toISOString()
-            }
-          ]);
-        
-        if (profileError) console.error('Error al crear perfil:', profileError);
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error al registrar usuario');
       }
 
-      toast.success('Registro exitoso. Por favor, verifica tu correo electrónico para completar el registro.');
-      navigate('/verify-email');
+      const { token, user: userData } = response.data.data;
+      
+      // Guardar token en localStorage
+      localStorage.setItem('authToken', token);
+      
+      // Actualizar contexto de autenticación
+      setUser(userData);
+
+      toast.success('Registro exitoso. Bienvenido/a!');
+      
+      // Pequeña espera para asegurar que los datos de sesión se guarden correctamente
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
     } catch (err) {
-      console.error('Error de registro:', err.message);
-      setError(
-        err.message.includes('already registered') 
-          ? 'Este correo electrónico ya está registrado. Por favor, inicia sesión o usa otra dirección de correo.' 
-          : err.message.includes('fetch') || err.message.includes('network')
-            ? 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
-            : `Error: ${err.message}`
-      );
-      toast.error(
-        err.message.includes('already registered') 
-          ? 'Este correo electrónico ya está registrado. Por favor, inicia sesión o usa otra dirección de correo.' 
-          : err.message.includes('fetch') || err.message.includes('network')
-            ? 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
-            : `Error: ${err.message}`
-      );
+      console.error('Error de registro:', err);
+      
+      // Mensajes de error mejorados y específicos
+      let errorMessage;
+      
+      if (err.response) {
+        // Error del servidor con respuesta
+        errorMessage = err.response.data.message || 'Error en el servidor. Por favor, intenta más tarde.';
+      } else if (err.request) {
+        // Error de conexión (no se recibió respuesta)
+        errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.';
+      } else if (err.message.includes('email') || err.message.toLowerCase().includes('correo')) {
+        errorMessage = 'El correo electrónico ya está en uso o es inválido.';
+      } else {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
-  
+
   const handleSocialSignUp = async (provider) => {
     try {
       setLoading(true);
       
       // Implementación unificada para proveedores sociales
-      const { data, error } = await executeWithRetry(() => 
-        supabase.auth.signInWithOAuth({
-          provider: provider,
-          options: {
-            redirectTo: `${window.location.origin}/dashboard`,
-          },
+      const response = await executeWithRetry(() => 
+        axios.post('/api/auth/social-login', {
+          provider,
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
         })
       );
       
-      if (error) throw error;
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error al iniciar sesión con ' + provider);
+      }
+
+      const { token, user: userData } = response.data.data;
+      
+      // Guardar token en localStorage
+      localStorage.setItem('authToken', token);
+      
+      // Actualizar contexto de autenticación
+      setUser(userData);
+
+      toast.success('Inicio de sesión exitoso con ' + provider);
+      
+      // Pequeña espera para asegurar que los datos de sesión se guarden correctamente
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
     } catch (err) {
-      console.error(`Error en registro con ${provider}:`, err.message);
-      toast.error(`Error al registrarse con ${provider}: ${err.message}`);
-      setError(err.message);
+      console.error(`Error en registro con ${provider}:`, err);
+      
+      // Mensajes de error mejorados y específicos
+      let errorMessage;
+      
+      if (err.response) {
+        // Error del servidor con respuesta
+        errorMessage = err.response.data.message || 'Error en el servidor. Por favor, intenta más tarde.';
+      } else if (err.request) {
+        // Error de conexión (no se recibió respuesta)
+        errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.';
+      } else {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      toast.error(`Error al registrarse con ${provider}: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

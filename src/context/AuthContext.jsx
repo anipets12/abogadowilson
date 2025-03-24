@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { supabase } from '../config/supabase';
 import { getUserTokens, initializeUserTokens, useToken, refillTokens } from '../services/tokenService';
 import { toast } from 'react-hot-toast';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
   const [connectionError, setConnectionError] = useState(false);
 
   // Función para manejar reintentos en caso de errores de red
-  const executeWithRetry = async (fn, maxRetries = 5) => {
+  const executeWithRetry = async (fn, maxRetries = 3) => {
     let lastError;
     for (let i = 0; i < maxRetries; i++) {
       try {
@@ -35,41 +35,62 @@ export const AuthProvider = ({ children }) => {
     throw lastError;
   };
 
-  // Cargar el usuario actual desde Supabase
+  // Verificar si hay un token almacenado y obtener el usuario actual
   useEffect(() => {
     const fetchUser = async () => {
       try {
         setConnectionError(false);
         console.log('Verificando sesión de usuario...');
         
-        // Intenta obtener la sesión del almacenamiento local primero
-        const { data: { user: currentUser }, error: userError } = await executeWithRetry(() => 
-          supabase.auth.getUser()
-        );
-
-        if (userError) {
-          console.error('Error al obtener usuario:', userError);
-          throw userError;
+        // Obtener token del localStorage
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+          console.log('No se encontró token de autenticación');
+          setUser(null);
+          setLoading(false);
+          setAuthReady(true);
+          return;
         }
-
-        if (currentUser) {
-          console.log('Usuario encontrado:', currentUser.email);
-          setUser(currentUser);
-          // Obtener tokens del usuario
-          try {
-            const { tokens } = await getUserTokens(currentUser.id);
-            setTokens(tokens);
-          } catch (tokenError) {
-            console.error('Error obteniendo tokens:', tokenError);
-            // No bloqueamos la autenticación si hay error en tokens
+        
+        // Validar token con el servidor
+        try {
+          const response = await executeWithRetry(() => 
+            axios.get('/api/auth/me', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+          );
+          
+          if (response.data.success && response.data.data.user) {
+            const userData = response.data.data.user;
+            console.log('Usuario autenticado:', userData.email);
+            setUser(userData);
+            
+            // Obtener tokens del usuario
+            try {
+              const { tokens } = await getUserTokens(userData.id);
+              setTokens(tokens);
+            } catch (tokenError) {
+              console.error('Error obteniendo tokens:', tokenError);
+              // No bloqueamos la autenticación si hay error en tokens
+            }
+          } else {
+            console.log('Token inválido o expirado');
+            localStorage.removeItem('authToken');
+            setUser(null);
           }
-        } else {
-          console.log('No se encontró usuario autenticado');
+        } catch (error) {
+          console.error('Error al validar token:', error);
+          // Si el error es por token inválido o expirado, eliminar el token
+          if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            localStorage.removeItem('authToken');
+          }
           setUser(null);
         }
       } catch (error) {
         console.error('Error obteniendo usuario autenticado:', error);
-        // Si hay error, asumimos que no hay sesión
         setUser(null);
       } finally {
         setLoading(false);
@@ -78,131 +99,54 @@ export const AuthProvider = ({ children }) => {
     };
 
     fetchUser();
-
-    // Suscribirse a cambios de autenticación
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('Usuario ha iniciado sesión:', session.user.email);
-          setUser(session.user);
-          
-          // Inicializar o obtener tokens
-          try {
-            const { tokens } = await getUserTokens(session.user.id);
-            setTokens(tokens);
-          } catch (error) {
-            console.error('Error obteniendo tokens después de login:', error);
-          }
-          
-          toast.success('Sesión iniciada correctamente');
-        } else if (event === 'SIGNED_OUT') {
-          console.log('Usuario ha cerrado sesión');
-          setUser(null);
-          setTokens(0);
-          toast.success('Sesión cerrada correctamente');
-        } else if (event === 'USER_UPDATED' && session?.user) {
-          console.log('Datos de usuario actualizados:', session.user.email);
-          setUser(session.user);
-        } else if (event === 'PASSWORD_RECOVERY') {
-          toast.info('Siga las instrucciones para recuperar su contraseña');
-        }
-      }
-    );
-
-    return () => {
-      authListener?.subscription?.unsubscribe();
-    };
   }, []);
-
-  // Mostrar mensaje de error de conexión si es necesario
-  useEffect(() => {
-    if (connectionError) {
-      toast.error('Hay problemas de conexión con el servidor. Algunas funciones pueden no estar disponibles.', {
-        duration: 5000,
-        id: 'connection-error',
-      });
-    }
-  }, [connectionError]);
-
-  // Función para usar un token
-  const useUserToken = async () => {
-    if (!user) {
-      toast.error('Debe iniciar sesión para usar tokens');
-      return { success: false };
-    }
-    
-    if (tokens <= 0) {
-      toast.error('No tiene tokens disponibles. Por favor recargue.');
-      return { success: false };
-    }
-    
-    try {
-      const { tokensRemaining, success, error } = await useToken(user.id);
-      
-      if (error) {
-        toast.error(error);
-        return { success: false };
-      }
-      
-      setTokens(tokensRemaining);
-      return { success, tokensRemaining };
-    } catch (error) {
-      toast.error('Error al usar el token');
-      return { success: false };
-    }
-  };
-
-  // Función para recargar tokens
-  const rechargeTokens = async (amount) => {
-    if (!user) {
-      toast.error('Debe iniciar sesión para recargar tokens');
-      return { success: false };
-    }
-    
-    try {
-      const { newTotal, success, error } = await refillTokens(user.id, amount);
-      
-      if (error) {
-        toast.error(error);
-        return { success: false };
-      }
-      
-      setTokens(newTotal);
-      toast.success(`Se han agregado ${amount} tokens a su cuenta`);
-      return { success, newTotal };
-    } catch (error) {
-      toast.error('Error al recargar tokens');
-      return { success: false };
-    }
-  };
 
   // Función para cerrar sesión
   const signOut = async () => {
     try {
-      console.log('Cerrando sesión...');
-      await executeWithRetry(() => supabase.auth.signOut());
+      // Enviar solicitud de logout al servidor
+      const token = localStorage.getItem('authToken');
+      
+      if (token) {
+        await executeWithRetry(() => 
+          axios.post('/api/auth/logout', {}, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+        );
+      }
+      
+      // Eliminar token del localStorage
+      localStorage.removeItem('authToken');
       setUser(null);
-      setTokens(0);
+      
+      // Redireccionar a la página de inicio
+      window.location.href = '/';
+      
       toast.success('Sesión cerrada correctamente');
-      return { success: true };
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
-      toast.error('Error al cerrar sesión');
-      return { success: false, error };
+      // Aún si falla la solicitud al servidor, eliminamos el token local
+      localStorage.removeItem('authToken');
+      setUser(null);
+      window.location.href = '/';
     }
   };
 
+  // Exponer valores del contexto
   const value = {
     user,
+    setUser,
     tokens,
+    setTokens,
     loading,
+    signOut,
     authReady,
     connectionError,
-    useToken: useUserToken,
-    rechargeTokens,
-    signOut
+    initializeUserTokens,
+    useToken,
+    refillTokens
   };
 
   return (
@@ -211,5 +155,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-export default AuthContext;

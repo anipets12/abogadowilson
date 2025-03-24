@@ -1,5 +1,25 @@
 const prisma = require('../utils/prisma');
-const { hashPassword, comparePassword, generateToken } = require('../utils/auth');
+const { hashPassword, comparePassword, generateToken, verifyToken } = require('../utils/auth');
+
+// Cabeceras CORS comunes
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Max-Age': '86400',
+  'Access-Control-Allow-Credentials': 'true',
+};
+
+// Genera un código de referido único
+function generateReferralCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
 // Register a new user
 async function register(request) {
@@ -14,12 +34,7 @@ async function register(request) {
         message: 'Email and password are required'
       }), {
         status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        }
+        headers: corsHeaders
       });
     }
 
@@ -34,12 +49,7 @@ async function register(request) {
         message: 'User already exists'
       }), {
         status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        }
+        headers: corsHeaders
       });
     }
 
@@ -107,12 +117,7 @@ async function register(request) {
       }
     }), {
       status: 201,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
+      headers: corsHeaders
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -122,12 +127,7 @@ async function register(request) {
       error: error.message
     }), {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
+      headers: corsHeaders
     });
   }
 }
@@ -145,12 +145,7 @@ async function login(request) {
         message: 'Email and password are required'
       }), {
         status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        }
+        headers: corsHeaders
       });
     }
 
@@ -165,12 +160,7 @@ async function login(request) {
         message: 'Invalid email or password'
       }), {
         status: 401,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        }
+        headers: corsHeaders
       });
     }
 
@@ -182,12 +172,7 @@ async function login(request) {
         message: 'Invalid email or password'
       }), {
         status: 401,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        }
+        headers: corsHeaders
       });
     }
 
@@ -223,12 +208,7 @@ async function login(request) {
       }
     }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
+      headers: corsHeaders
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -238,24 +218,9 @@ async function login(request) {
       error: error.message
     }), {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
+      headers: corsHeaders
     });
   }
-}
-
-// Generate a random referral code
-function generateReferralCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
 }
 
 // Logout user
@@ -268,12 +233,7 @@ async function logout(request) {
         message: 'No token provided'
       }), {
         status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        }
+        headers: corsHeaders
       });
     }
 
@@ -289,12 +249,7 @@ async function logout(request) {
       message: 'Logout successful'
     }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
+      headers: corsHeaders
     });
   } catch (error) {
     console.error('Logout error:', error);
@@ -304,12 +259,161 @@ async function logout(request) {
       error: error.message
     }), {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      headers: corsHeaders
+    });
+  }
+}
+
+// Get authenticated user
+async function getUser(request) {
+  try {
+    // Extract token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Authentication required'
+      }), {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    // Verify token
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Invalid or expired token'
+      }), {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    // Check if token exists in database and is not expired
+    const tokenRecord = await prisma.token.findFirst({
+      where: {
+        token,
+        expiresAt: {
+          gt: new Date()
+        }
       }
+    });
+
+    if (!tokenRecord) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Invalid or expired token'
+      }), {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'User not found'
+      }), {
+        status: 404,
+        headers: corsHeaders
+      });
+    }
+
+    // Get user's referral link
+    const referralLink = await prisma.referralLink.findFirst({
+      where: { userId: user.id }
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        user,
+        referralCode: referralLink ? referralLink.code : null
+      }
+    }), {
+      status: 200,
+      headers: corsHeaders
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Failed to get user',
+      error: error.message
+    }), {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
+}
+
+// Create a new referral link
+async function createReferralLink(request) {
+  try {
+    // User is already authenticated by middleware
+    const { userId } = request.user;
+
+    // Check if user already has a referral link
+    const existingLink = await prisma.referralLink.findFirst({
+      where: { userId }
+    });
+
+    if (existingLink) {
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Referral link already exists',
+        data: {
+          referralCode: existingLink.code
+        }
+      }), {
+        status: 200,
+        headers: corsHeaders
+      });
+    }
+
+    // Create a new referral link
+    const referralLink = await prisma.referralLink.create({
+      data: {
+        code: generateReferralCode(),
+        userId
+      }
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Referral link created successfully',
+      data: {
+        referralCode: referralLink.code
+      }
+    }), {
+      status: 201,
+      headers: corsHeaders
+    });
+  } catch (error) {
+    console.error('Create referral link error:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Failed to create referral link',
+      error: error.message
+    }), {
+      status: 500,
+      headers: corsHeaders
     });
   }
 }
@@ -317,5 +421,7 @@ async function logout(request) {
 module.exports = {
   register,
   login,
-  logout
+  logout,
+  getUser,
+  createReferralLink
 };
