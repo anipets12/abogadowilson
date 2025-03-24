@@ -55,67 +55,95 @@ import CheckoutForm from './components/Payment/CheckoutForm';
 // Importamos el contexto de autenticación
 import { AuthProvider, useAuth } from './context/AuthContext';
 
+// Determinar la URL base según el entorno (similar a apiService.js)
+const getBaseUrl = () => {
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '';  // URL relativa para Cloudflare
+  }
+  return 'http://localhost:8787';
+};
+
 function App() {
   const [apiReady, setApiReady] = useState(false);
-  const [apiError, setApiError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Verificar la API al iniciar
   useEffect(() => {
     const verifyApiConnection = async () => {
       try {
-        // Intentar hasta 3 veces con delay entre intentos
-        for (let i = 0; i < 3; i++) {
-          try {
-            // Solicitud al endpoint de salud para verificar la API
-            const response = await axios.get('/api/health', { timeout: 5000 });
-            if (response.data && response.data.status === 'ok') {
-              console.log('Conexión con API exitosa');
-              setApiReady(true);
-              return;
-            }
-          } catch (err) {
-            console.log(`Intento ${i+1} fallido: ${err.message}`);
-            // Esperar antes de reintentar
-            if (i < 2) {
-              await new Promise(resolve => setTimeout(resolve, 1500));
-            }
-          }
+        // En producción, asumimos que la API está lista
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          console.log('Entorno de producción detectado, asumiendo API disponible');
+          setApiReady(true);
+          setIsLoading(false);
+          return;
         }
+
+        // En desarrollo, intentamos verificar la API
+        const response = await axios.get(`${getBaseUrl()}/api/health`, { 
+          timeout: 5000,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
         
-        // Si llegamos aquí, asumir modo de desarrollo local
-        console.log('API en modo de desarrollo local o no disponible');
-        setApiReady(true); // Seguir cargando la aplicación de todos modos
-      } catch (error) {
-        console.error('Error al verificar la API:', error);
-        setApiError(error.message);
-        // En producción, seguir cargando la aplicación incluso con errores
+        console.log('Conexión con API exitosa');
         setApiReady(true);
+      } catch (error) {
+        console.error('Error al verificar API:', error);
+        // En desarrollo, mostramos error pero igual continuamos
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          toast.error('No se pudo conectar con la API. Algunas funcionalidades podrían no estar disponibles.');
+        }
+        // Permitimos acceso a la aplicación de todos modos
+        setApiReady(true);
+      } finally {
+        setIsLoading(false);
       }
     };
-    
+
     verifyApiConnection();
   }, []);
 
-  // Si la API no está lista, mostrar un indicador de carga
-  if (!apiReady) {
+  // Si estamos cargando, mostrar pantalla de carga
+  if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Conectando con los servicios...</p>
-        </div>
+      <div className="fixed inset-0 bg-gradient-to-r from-gray-800 to-gray-900 flex flex-col items-center justify-center text-white">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-400 mb-4"></div>
+        <h2 className="text-xl font-semibold">Cargando aplicación...</h2>
+        <p className="text-sm mt-2 text-gray-300">Esto tomará solo unos segundos</p>
       </div>
     );
   }
 
-  // Si hay un error con la API, mostrar un mensaje amigable
-  if (apiError) {
-    console.warn('La aplicación continuará aunque hubo un error con la API:', apiError);
-  }
-
   return (
     <AuthProvider>
-      <AppContent />
+      <Router>
+        <Toaster 
+          position="top-center" 
+          reverseOrder={false}
+          toastOptions={{
+            duration: 5000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: '#22c55e',
+                secondary: 'white',
+              },
+            },
+            error: {
+              duration: 4000,
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: 'white',
+              },
+            },
+          }}
+        />
+        <AppContent />
+      </Router>
     </AuthProvider>
   );
 }
@@ -134,131 +162,118 @@ function AppContent() {
   }
 
   return (
-    <Router>
-      <div className="flex flex-col min-h-screen">
-        <Navbar />
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#333',
-              color: '#fff',
-            },
-          }}
-        />
-        
-        <main className="flex-grow">
-          <Routes>
-            {/* Rutas públicas */}
-            <Route path="/" element={
-              <>
-                <Hero />
-                <Services />
-                <Testimonials />
-                <Blog />
-                <ProcessSearch />
-                <Newsletter />
-              </>
-            } />
-            
-            {/* Servicios */}
-            <Route path="/servicios/penal" element={<Penal />} />
-            <Route path="/servicios/civil" element={<Civil />} />
-            <Route path="/servicios/comercial" element={<Comercial />} />
-            <Route path="/servicios/transito" element={<Transito />} />
-            <Route path="/servicios/aduanas" element={<Aduanas />} />
-            
-            {/* Consultas */}
-            <Route path="/consultas/penales" element={<ConsultasPenales />} />
-            <Route path="/consultas/transito" element={<ConsultasTransito />} />
-            <Route path="/consultas/civiles" element={<ConsultasCiviles />} />
-            
-            {/* Otras rutas */}
-            <Route path="/contacto" element={<ContactPage />} />
-            <Route path="/chat" element={<LiveChat />} />
-            <Route path="/noticias" element={<JudicialNews />} />
-            <Route path="/afiliados" element={<Afiliados />} />
-            <Route path="/referidos" element={<Referidos />} />
-            <Route path="/consulta" element={<ConsultationHub />} />
-            <Route path="/ebooks" element={<Ebooks />} />
-            <Route path="/politica-privacidad" element={<PrivacyPolicy />} />
-            <Route path="/terminos-condiciones" element={<TerminosCondiciones />} />
-            <Route path="/seguridad" element={<Seguridad />} />
-            
-            {/* Foro */}
-            <Route path="/foro" element={<Forum />} />
-            <Route path="/foro/tema/:id" element={<TopicDetail />} />
-            
-            {/* Rutas de autenticación */}
-            <Route path="/registro" element={
-              user ? <Navigate to="/dashboard" /> : <Register />
-            } />
-            <Route path="/login" element={
-              user ? <Navigate to="/dashboard" /> : <Login />
-            } />
-            <Route path="/recuperar-password" element={
-              user ? <Navigate to="/dashboard" /> : <ForgotPassword />
-            } />
-            <Route path="/reset-password" element={
-              user ? <Navigate to="/dashboard" /> : <ResetPassword />
-            } />
-            
-            {/* Rutas protegidas */}
-            <Route path="/dashboard" element={
-              <RequireAuth>
-                <DashboardPage />
-              </RequireAuth>
-            } />
-            <Route path="/cliente" element={
-              <RequireAuth>
-                <ClientDashboard />
-              </RequireAuth>
-            } />
-            <Route path="/calendario" element={
-              <RequireAuth>
-                <AppointmentCalendar />
-              </RequireAuth>
-            } />
-            <Route path="/pago" element={
-              <RequireAuth>
-                <PaymentForm />
-              </RequireAuth>
-            } />
-            <Route path="/checkout" element={
-              <RequireAuth>
-                <CheckoutForm />
-              </RequireAuth>
-            } />
-            <Route path="/gracias" element={<ThankYouPage />} />
-            
-            {/* Ruta de fallback */}
-            <Route path="*" element={
-              <div className="flex flex-col items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-md w-full space-y-8 text-center">
-                  <h1 className="text-4xl font-extrabold text-red-600">404</h1>
-                  <h2 className="mt-6 text-3xl font-bold text-gray-900">
-                    Página no encontrada
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-600">
-                    La página que estás buscando no existe o ha sido movida.
-                  </p>
-                  <div className="mt-5">
-                    <Link to="/" className="text-blue-600 hover:text-blue-800 font-medium">
-                      Volver al inicio
-                    </Link>
-                  </div>
+    <div className="flex flex-col min-h-screen">
+      <Navbar />
+      <main className="flex-grow">
+        <Routes>
+          {/* Rutas públicas */}
+          <Route path="/" element={
+            <>
+              <Hero />
+              <Services />
+              <Testimonials />
+              <Blog />
+              <ProcessSearch />
+              <Newsletter />
+            </>
+          } />
+          
+          {/* Servicios */}
+          <Route path="/servicios/penal" element={<Penal />} />
+          <Route path="/servicios/civil" element={<Civil />} />
+          <Route path="/servicios/comercial" element={<Comercial />} />
+          <Route path="/servicios/transito" element={<Transito />} />
+          <Route path="/servicios/aduanas" element={<Aduanas />} />
+          
+          {/* Consultas */}
+          <Route path="/consultas/penales" element={<ConsultasPenales />} />
+          <Route path="/consultas/transito" element={<ConsultasTransito />} />
+          <Route path="/consultas/civiles" element={<ConsultasCiviles />} />
+          
+          {/* Otras rutas */}
+          <Route path="/contacto" element={<ContactPage />} />
+          <Route path="/chat" element={<LiveChat />} />
+          <Route path="/noticias" element={<JudicialNews />} />
+          <Route path="/afiliados" element={<Afiliados />} />
+          <Route path="/referidos" element={<Referidos />} />
+          <Route path="/consulta" element={<ConsultationHub />} />
+          <Route path="/ebooks" element={<Ebooks />} />
+          <Route path="/politica-privacidad" element={<PrivacyPolicy />} />
+          <Route path="/terminos-condiciones" element={<TerminosCondiciones />} />
+          <Route path="/seguridad" element={<Seguridad />} />
+          
+          {/* Foro */}
+          <Route path="/foro" element={<Forum />} />
+          <Route path="/foro/tema/:id" element={<TopicDetail />} />
+          
+          {/* Rutas de autenticación */}
+          <Route path="/registro" element={
+            user ? <Navigate to="/dashboard" /> : <Register />
+          } />
+          <Route path="/login" element={
+            user ? <Navigate to="/dashboard" /> : <Login />
+          } />
+          <Route path="/recuperar-password" element={
+            user ? <Navigate to="/dashboard" /> : <ForgotPassword />
+          } />
+          <Route path="/reset-password" element={
+            user ? <Navigate to="/dashboard" /> : <ResetPassword />
+          } />
+          
+          {/* Rutas protegidas */}
+          <Route path="/dashboard" element={
+            <RequireAuth>
+              <DashboardPage />
+            </RequireAuth>
+          } />
+          <Route path="/cliente" element={
+            <RequireAuth>
+              <ClientDashboard />
+            </RequireAuth>
+          } />
+          <Route path="/calendario" element={
+            <RequireAuth>
+              <AppointmentCalendar />
+            </RequireAuth>
+          } />
+          <Route path="/pago" element={
+            <RequireAuth>
+              <PaymentForm />
+            </RequireAuth>
+          } />
+          <Route path="/checkout" element={
+            <RequireAuth>
+              <CheckoutForm />
+            </RequireAuth>
+          } />
+          <Route path="/gracias" element={<ThankYouPage />} />
+          
+          {/* Ruta de fallback */}
+          <Route path="*" element={
+            <div className="flex flex-col items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+              <div className="max-w-md w-full space-y-8 text-center">
+                <h1 className="text-4xl font-extrabold text-red-600">404</h1>
+                <h2 className="mt-6 text-3xl font-bold text-gray-900">
+                  Página no encontrada
+                </h2>
+                <p className="mt-2 text-sm text-gray-600">
+                  La página que estás buscando no existe o ha sido movida.
+                </p>
+                <div className="mt-5">
+                  <Link to="/" className="text-blue-600 hover:text-blue-800 font-medium">
+                    Volver al inicio
+                  </Link>
                 </div>
               </div>
-            } />
-          </Routes>
-        </main>
-        
-        <Footer />
-        <CookieConsent />
-        <WhatsAppChat />
-      </div>
-    </Router>
+            </div>
+          } />
+        </Routes>
+      </main>
+      
+      <Footer />
+      <CookieConsent />
+      <WhatsAppChat />
+    </div>
   );
 }
 

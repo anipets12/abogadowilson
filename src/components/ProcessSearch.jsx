@@ -41,8 +41,9 @@ const ProcessSearch = () => {
 
   const fetchRecentSearches = async () => {
     try {
-      // Modificando el enfoque para usar el nuevo método getAll en lugar de .from().select()
-      const { data, error } = await dataService.getAll('searches');
+      // Usar método getAll directamente sin esperar from().select()
+      const response = await dataService.getAll('searches');
+      const { data, error } = response;
       
       if (error) throw error;
       // Ordenar los resultados manualmente si es necesario
