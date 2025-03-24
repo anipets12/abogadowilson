@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { dataService } from '../services/apiService';
+import { dataService, authService } from '../services/apiService';
 
 const ConsultasBase = ({ children, queryType }) => {
   const [queryCount, setQueryCount] = useState(0);
@@ -9,20 +9,29 @@ const ConsultasBase = ({ children, queryType }) => {
 
   useEffect(() => {
     const checkQueryLimit = async () => {
-      const { data: { user } } = await dataService.auth.getUser();
-      if (!user) {
-        navigate('/login');
-        return;
+      try {
+        const { user } = await authService.getCurrentUser();
+        if (!user) {
+          navigate('/login');
+          return;
+        }
+
+        // Obtener el recuento de consultas de los últimos 30 días
+        const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await dataService.search('user_queries', {
+          userId: user.id,
+          fromDate: oneMonthAgo,
+          countOnly: true
+        });
+
+        if (error) throw error;
+        
+        setQueryCount(data?.length || 0);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error al verificar límite de consultas:', error);
+        setIsLoading(false);
       }
-
-      const { count } = await dataService
-        .from('user_queries')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .gt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-      setQueryCount(count || 0);
-      setIsLoading(false);
     };
 
     checkQueryLimit();
@@ -34,12 +43,24 @@ const ConsultasBase = ({ children, queryType }) => {
       return;
     }
 
-    const { data: { user } } = await dataService.auth.getUser();
-    await dataService
-      .from('user_queries')
-      .insert([{ user_id: user.id, query_type: queryType }]);
-
-    setQueryCount(prev => prev + 1);
+    try {
+      const { user } = await authService.getCurrentUser();
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+      
+      const { error } = await dataService.create('user_queries', { 
+        user_id: user.id, 
+        query_type: queryType 
+      });
+      
+      if (error) throw error;
+      
+      setQueryCount(prev => prev + 1);
+    } catch (error) {
+      console.error('Error al realizar la consulta:', error);
+    }
   };
 
   return children({ handleQuery, queryCount, isLoading });

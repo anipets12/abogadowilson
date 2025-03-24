@@ -41,16 +41,16 @@ const ProcessSearch = () => {
 
   const fetchRecentSearches = async () => {
     try {
-      const { data, error } = await dataService
-        .from('searches')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(5);
-
+      // Modificando el enfoque para usar el nuevo método getAll en lugar de .from().select()
+      const { data, error } = await dataService.getAll('searches');
+      
       if (error) throw error;
-      setRecentSearches(data || []);
-    } catch (err) {
-      console.error('Error al cargar búsquedas recientes:', err);
+      // Ordenar los resultados manualmente si es necesario
+      const sortedData = data ? [...data].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 5) : [];
+      setRecentSearches(sortedData || []);
+    } catch (error) {
+      console.error('Error al cargar búsquedas recientes:', error);
+      setRecentSearches([]);
     }
   };
 
@@ -67,23 +67,24 @@ const ProcessSearch = () => {
     setResults([]);
 
     try {
-      // Guardar la búsqueda en Supabase
-      const { error: insertError } = await dataService.from('searches').insert([{
+      // Guardar la búsqueda en la base de datos
+      const searchData = {
         search_type: searchParams.type,
         search_value: searchParams.value,
         province: searchParams.province,
         timestamp: new Date().toISOString()
-      }]);
-
+      };
+      
+      const { error: insertError } = await dataService.create('searches', searchData);
       if (insertError) throw insertError;
 
-      // Realizar la búsqueda en la tabla de procesos judiciales
-      const { data, error: searchError } = await dataService
-        .from('judicial_processes')
-        .select('*')
-        .or(`${searchParams.type}.ilike.%${searchParams.value}%`)
-        .eq('province', searchParams.province)
-        .order('date', { ascending: false });
+      // Realizar la búsqueda de procesos judiciales
+      // Utilizamos el método search personalizado en lugar de from().select()
+      const { data, error: searchError } = await dataService.search('judicial_processes', {
+        searchType: searchParams.type,
+        searchValue: searchParams.value,
+        province: searchParams.province
+      });
 
       if (searchError) throw searchError;
 

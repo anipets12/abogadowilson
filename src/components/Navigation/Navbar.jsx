@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Disclosure, Menu, Transition, Popover } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon, ChevronDownIcon, UserIcon } from '@heroicons/react/24/outline';
 import { FaUsers, FaHandshake, FaComments, FaGavel, FaBook, FaShieldAlt, FaFileContract, FaFileAlt, FaUserTie, FaWhatsapp, FaPhone, FaEnvelope, FaUserPlus, FaSignInAlt, FaLock } from 'react-icons/fa';
-import { authService } from '../../services/apiService';
+import { authService, dataService } from '../../services/apiService';
 
 const mainNavigation = [
   { name: 'Inicio', href: '/', current: false },
@@ -58,23 +58,39 @@ function Navbar() {
   useEffect(() => {
     // Establecer la sesión inicial
     const setInitialSession = async () => {
-      const { data } = await authService.getSession();
-      setSession(data.session);
+      try {
+        // Verificar si hay un token en localStorage
+        const token = localStorage.getItem('authToken');
+        if (token) {
+          const { user } = await authService.getCurrentUser();
+          setSession({ user });
+        } else {
+          setSession(null);
+        }
+      } catch (error) {
+        console.error('Error al obtener la sesión inicial:', error);
+        setSession(null);
+      }
     };
     setInitialSession();
 
-    // Escuchar cambios en la autenticación
-    const { data: authListener } = authService.onAuthStateChange(
-      (event, newSession) => {
-        setSession(newSession);
-      }
-    );
-
-    return () => {
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
+    // Simplificamos la lógica de escucha de cambios de autenticación
+    const handleAuthChange = () => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        authService.getCurrentUser().then(({ user }) => {
+          if (user) setSession({ user });
+        });
+      } else {
+        setSession(null);
       }
     };
+
+    // Comprobamos cada 5 segundos si el token cambió
+    const interval = setInterval(handleAuthChange, 5000);
+    
+    // Limpiar el intervalo al desmontar
+    return () => clearInterval(interval);
   }, []);
 
   const updatedNavigation = mainNavigation.map(item => ({
@@ -264,7 +280,7 @@ function Navbar() {
                 <div className="hidden md:flex md:items-center space-x-1">
                   <a 
                     href="tel:+593988835269" 
-                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 transition-colors duration-200"
+                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors duration-200"
                   >
                     <FaPhone className="mr-1" /> Llamar
                   </a>
@@ -272,13 +288,13 @@ function Navbar() {
                     href="https://wa.me/593988835269" 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-500 hover:bg-green-600 transition-colors duration-200"
+                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-500 hover:bg-green-600 transition-colors duration-200"
                   >
                     <FaWhatsapp className="mr-1" /> WhatsApp
                   </a>
                   <Link 
                     to="/contacto" 
-                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded text-gray-900 bg-yellow-400 hover:bg-yellow-500 transition-colors duration-200"
+                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded-md text-gray-900 bg-yellow-400 hover:bg-yellow-500 transition-colors duration-200"
                   >
                     <FaEnvelope className="mr-1" /> Consulta Gratis
                   </Link>

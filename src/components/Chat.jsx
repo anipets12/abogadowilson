@@ -53,11 +53,11 @@ const Chat = () => {
 
   const loadPreviousMessages = async (sessionId) => {
     try {
-      const { data, error } = await dataService
-        .from('chat_messages')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('timestamp', { ascending: true });
+      const { data, error } = await dataService.getAll('chat_messages', {
+        sessionId: sessionId,
+        sortBy: 'timestamp',
+        sortDirection: 'asc'
+      });
 
       if (error) throw error;
       
@@ -79,62 +79,58 @@ const Chat = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
+    
     if (!input.trim()) return;
-
+    
     // Si es el primer mensaje y no tenemos información del usuario, solicitarla
     if (messages.length <= 1 && !userName && !userEmail) {
       setShowUserForm(true);
       return;
     }
 
-    const sessionId = localStorage.getItem('chatSessionId');
     const userMessage = {
       text: input,
       sender: 'user',
       timestamp: new Date().toISOString(),
-      session_id: sessionId,
+      session_id: localStorage.getItem('chatSessionId'),
       user_name: userName || 'Anónimo',
       user_email: userEmail || 'no-email'
     };
-
-    setMessages(prev => [...prev, userMessage]);
+    
+    // Actualizar mensajes localmente primero para mejor UX
+    setMessages(prevMessages => [...prevMessages, userMessage]);
     setInput('');
     setIsLoading(true);
-
+    inputRef.current?.focus();
+    
     try {
-      // Guardar mensaje del usuario en Supabase
-      const { error } = await dataService
-        .from('chat_messages')
-        .insert([userMessage]);
-
-      if (error) throw error;
-
-      // Obtener respuesta del bot
-      const botResponse = {
-        text: getBotResponse(input),
-        sender: 'bot',
-        timestamp: new Date().toISOString(),
-        session_id: sessionId
-      };
-
-      // Simular tiempo de respuesta
+      // Guardar mensaje del usuario
+      await dataService.create('chat_messages', userMessage);
+      
+      // Simular respuesta del bot después de un breve retraso
       setTimeout(async () => {
-        setMessages(prev => [...prev, botResponse]);
+        // Obtener respuesta del bot
+        const botResponse = {
+          text: getBotResponse(input),
+          sender: 'bot',
+          timestamp: new Date().toISOString(),
+          session_id: localStorage.getItem('chatSessionId')
+        };
+
+        // Actualizar mensajes con la respuesta del bot
+        setMessages(prevMessages => [...prevMessages, botResponse]);
+        
+        // Guardar mensaje del bot
+        await dataService.create('chat_messages', botResponse);
+        
         setIsLoading(false);
-
-        // Guardar respuesta del bot en Supabase
-        await dataService
-          .from('chat_messages')
-          .insert([botResponse]);
-
       }, 1000);
-
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error al enviar mensaje:', error);
       setIsLoading(false);
       
       // Mensaje de error
-      setMessages(prev => [...prev, {
+      setMessages(prevMessages => [...prevMessages, {
         text: 'Lo siento, ha ocurrido un error al procesar su mensaje. Por favor, inténtelo de nuevo.',
         sender: 'bot',
         timestamp: new Date().toISOString()

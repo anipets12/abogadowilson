@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { generateLegalAdvice } from '../../utils/openai';
-import { dataService } from '../../services/apiService';
+import { dataService, authService } from '../../services/apiService';
 
 // Componente para consultas de IA
 const AIConsultation = () => {
@@ -17,23 +17,28 @@ const AIConsultation = () => {
   // Verificar si el usuario está autenticado
   useEffect(() => {
     const checkUser = async () => {
-      const { data } = await dataService.auth.getSession();
-      if (data.session) {
-        setUser(data.session.user);
+      const { user } = await authService.getCurrentUser();
+      if (user) {
+        setUser(user);
       }
     };
     
     checkUser();
     
-    const { data: authListener } = dataService.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-    });
-
-    return () => {
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
+    const handleAuthChange = () => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        authService.getCurrentUser().then(({ user }) => {
+          if (user) setUser(user);
+        });
+      } else {
+        setUser(null);
       }
     };
+
+    const interval = setInterval(handleAuthChange, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Cargar consultas recientes si el usuario está autenticado
@@ -41,17 +46,16 @@ const AIConsultation = () => {
     if (user) {
       const fetchRecentQueries = async () => {
         try {
-          const { data, error } = await dataService
-            .from('legal_queries')
-            .select('query, area, created_at')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(5);
+          const { data, error } = await dataService.search('legal_queries', {
+            userId: user.id,
+            limit: 5
+          });
 
           if (error) throw error;
           setRecentQueries(data || []);
         } catch (err) {
           console.error('Error al cargar consultas recientes:', err);
+          setRecentQueries([]);
         }
       };
 
@@ -73,7 +77,6 @@ const AIConsultation = () => {
     setAdvice('');
     
     try {
-      // Generar respuesta
       const result = await generateLegalAdvice(query, area);
       
       if (!result.success) {
@@ -82,29 +85,22 @@ const AIConsultation = () => {
       
       setAdvice(result.advice);
       
-      // Guardar la consulta en Supabase si el usuario está autenticado
       if (user) {
-        await dataService
-          .from('legal_queries')
-          .insert([{
-            user_id: user.id,
-            query,
-            area,
-            response: result.advice
-          }]);
+        await dataService.insert('legal_queries', {
+          userId: user.id,
+          query,
+          area,
+          response: result.advice
+        });
           
-        // Actualizar consultas recientes
-        const { data } = await dataService
-          .from('legal_queries')
-          .select('query, area, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
+        const { data } = await dataService.search('legal_queries', {
+          userId: user.id,
+          limit: 5
+        });
           
         setRecentQueries(data || []);
       }
       
-      // Desplazarse al resultado
       if (resultRef.current) {
         resultRef.current.scrollIntoView({ behavior: 'smooth' });
       }
@@ -120,7 +116,6 @@ const AIConsultation = () => {
   const loadPreviousQuery = (prevQuery, prevArea) => {
     setQuery(prevQuery);
     setArea(prevArea);
-    // Desplazarse hacia el formulario
     window.scrollTo({
       top: 0,
       behavior: 'smooth'

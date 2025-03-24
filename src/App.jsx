@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import axios from 'axios';
 
@@ -56,21 +56,62 @@ import CheckoutForm from './components/Payment/CheckoutForm';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function App() {
+  const [apiReady, setApiReady] = useState(false);
+  const [apiError, setApiError] = useState(null);
+
   // Verificar la API al iniciar
   useEffect(() => {
     const verifyApiConnection = async () => {
       try {
-        // Simplemente hacer una solicitud al servidor para verificar que responde
-        await axios.get('/api/health');
-        console.log('Conexión con API exitosa');
+        // Intentar hasta 3 veces con delay entre intentos
+        for (let i = 0; i < 3; i++) {
+          try {
+            // Solicitud al endpoint de salud para verificar la API
+            const response = await axios.get('/api/health', { timeout: 5000 });
+            if (response.data && response.data.status === 'ok') {
+              console.log('Conexión con API exitosa');
+              setApiReady(true);
+              return;
+            }
+          } catch (err) {
+            console.log(`Intento ${i+1} fallido: ${err.message}`);
+            // Esperar antes de reintentar
+            if (i < 2) {
+              await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+          }
+        }
+        
+        // Si llegamos aquí, asumir modo de desarrollo local
+        console.log('API en modo de desarrollo local o no disponible');
+        setApiReady(true); // Seguir cargando la aplicación de todos modos
       } catch (error) {
-        console.log('API en modo de desarrollo local');
-        // No mostrar errores al usuario para no generar alarma
+        console.error('Error al verificar la API:', error);
+        setApiError(error.message);
+        // En producción, seguir cargando la aplicación incluso con errores
+        setApiReady(true);
       }
     };
     
     verifyApiConnection();
   }, []);
+
+  // Si la API no está lista, mostrar un indicador de carga
+  if (!apiReady) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Conectando con los servicios...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si hay un error con la API, mostrar un mensaje amigable
+  if (apiError) {
+    console.warn('La aplicación continuará aunque hubo un error con la API:', apiError);
+  }
 
   return (
     <AuthProvider>
@@ -149,16 +190,19 @@ function AppContent() {
             <Route path="/foro" element={<Forum />} />
             <Route path="/foro/tema/:id" element={<TopicDetail />} />
             
-            {/* Autenticación */}
-            <Route path="/registro" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/recuperar-contrasena" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            
-            {/* Pagos */}
-            <Route path="/pago" element={<PaymentForm />} />
-            <Route path="/checkout" element={<CheckoutForm />} />
-            <Route path="/gracias" element={<ThankYouPage />} />
+            {/* Rutas de autenticación */}
+            <Route path="/registro" element={
+              user ? <Navigate to="/dashboard" /> : <Register />
+            } />
+            <Route path="/login" element={
+              user ? <Navigate to="/dashboard" /> : <Login />
+            } />
+            <Route path="/recuperar-password" element={
+              user ? <Navigate to="/dashboard" /> : <ForgotPassword />
+            } />
+            <Route path="/reset-password" element={
+              user ? <Navigate to="/dashboard" /> : <ResetPassword />
+            } />
             
             {/* Rutas protegidas */}
             <Route path="/dashboard" element={
@@ -166,39 +210,76 @@ function AppContent() {
                 <DashboardPage />
               </RequireAuth>
             } />
-            <Route path="/mi-cuenta" element={
+            <Route path="/cliente" element={
               <RequireAuth>
                 <ClientDashboard />
               </RequireAuth>
             } />
-            <Route path="/citas" element={
+            <Route path="/calendario" element={
               <RequireAuth>
                 <AppointmentCalendar />
               </RequireAuth>
             } />
+            <Route path="/pago" element={
+              <RequireAuth>
+                <PaymentForm />
+              </RequireAuth>
+            } />
+            <Route path="/checkout" element={
+              <RequireAuth>
+                <CheckoutForm />
+              </RequireAuth>
+            } />
+            <Route path="/gracias" element={<ThankYouPage />} />
+            
+            {/* Ruta de fallback */}
+            <Route path="*" element={
+              <div className="flex flex-col items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-md w-full space-y-8 text-center">
+                  <h1 className="text-4xl font-extrabold text-red-600">404</h1>
+                  <h2 className="mt-6 text-3xl font-bold text-gray-900">
+                    Página no encontrada
+                  </h2>
+                  <p className="mt-2 text-sm text-gray-600">
+                    La página que estás buscando no existe o ha sido movida.
+                  </p>
+                  <div className="mt-5">
+                    <Link to="/" className="text-blue-600 hover:text-blue-800 font-medium">
+                      Volver al inicio
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            } />
           </Routes>
         </main>
-
+        
         <Footer />
-        <WhatsAppChat />
         <CookieConsent />
-        <Newsletter />
+        <WhatsAppChat />
       </div>
     </Router>
   );
 }
 
+// Componente para proteger rutas que requieren autenticación
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
-    return <div className="loading-screen">Cargando...</div>;
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
   }
   
   if (!user) {
-    return <Navigate to="/login" />;
+    // Redireccionar al login, guardando la ubicación actual
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   return children;
 }
 
