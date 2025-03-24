@@ -1,5 +1,6 @@
 const { register, login, logout, getUser, createReferralLink } = require('./src/auth/auth.controller');
 const { getPosts, getPost, createPost, addComment } = require('./src/forum/forum.controller');
+const { initializeTokens, getTokens, useToken, refillTokens } = require('./src/tokens/tokens.controller');
 const { authMiddleware, corsHeaders } = require('./src/middleware/auth');
 const path = require('path');
 const fs = require('fs');
@@ -41,7 +42,68 @@ async function handleApiRequest(request, url) {
         headers: corsHeaders
       });
     }
-    return createReferralLink(authResult.request);
+    return createReferralLink(request, authResult.user);
+  }
+
+  // Token routes
+  if (pathname === '/api/tokens/initialize' && request.method === 'POST') {
+    // Aplicar middleware de autenticación
+    const authResult = await authMiddleware(request);
+    if (!authResult.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: authResult.message
+      }), {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+    return initializeTokens(request);
+  }
+  if (pathname.match(/^\/api\/tokens\/[a-f0-9-]+$/) && request.method === 'GET') {
+    // Extraer el ID de usuario de la URL
+    const userId = pathname.split('/').pop();
+    
+    // Aplicar middleware de autenticación
+    const authResult = await authMiddleware(request);
+    if (!authResult.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: authResult.message
+      }), {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+    return getTokens(request, userId);
+  }
+  if (pathname === '/api/tokens/use' && request.method === 'POST') {
+    // Aplicar middleware de autenticación
+    const authResult = await authMiddleware(request);
+    if (!authResult.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: authResult.message
+      }), {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+    return useToken(request);
+  }
+  if (pathname === '/api/tokens/refill' && request.method === 'POST') {
+    // Aplicar middleware de autenticación
+    const authResult = await authMiddleware(request);
+    if (!authResult.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: authResult.message
+      }), {
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+    return refillTokens(request);
   }
   
   // Forum routes

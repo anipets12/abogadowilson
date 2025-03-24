@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import axios from 'axios';
 
 // Número máximo de tokens
 const MAX_TOKENS = 3;
@@ -26,48 +26,32 @@ const executeWithRetry = async (fn, maxRetries = 3) => {
  */
 export const initializeUserTokens = async (userId) => {
   try {
-    // Verificar si el usuario ya tiene tokens asignados
-    const { data: existingTokens, error: fetchError } = await executeWithRetry(() => 
-      supabase
-        .from('user_tokens')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-    );
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error al verificar tokens del usuario:', fetchError);
-      return { tokens: 0, error: fetchError };
+    // Obtener token de autenticación
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { tokens: 0, error: new Error('No hay sesión activa') };
     }
 
-    // Si el usuario ya tiene tokens, devolver ese valor
-    if (existingTokens) {
-      return { tokens: existingTokens.tokens_remaining, error: null };
-    }
-
-    // Si no tiene tokens, inicializar con el máximo
-    const { data: newTokenData, error: insertError } = await executeWithRetry(() =>
-      supabase
-        .from('user_tokens')
-        .insert([
-          { 
-            user_id: userId, 
-            tokens_remaining: MAX_TOKENS,
-            last_refill: new Date().toISOString()
+    // Usar nuestra API para inicializar tokens
+    const response = await executeWithRetry(() => 
+      axios.post('/api/tokens/initialize', 
+        { userId },
+        { 
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
-        ])
-        .select()
-        .single()
+        }
+      )
     );
 
-    if (insertError) {
-      console.error('Error al inicializar tokens del usuario:', insertError);
-      return { tokens: 0, error: insertError };
+    if (response.data && response.data.success) {
+      return { tokens: response.data.data.tokens, error: null };
+    } else {
+      return { tokens: 0, error: new Error(response.data?.message || 'Error al inicializar tokens') };
     }
-
-    return { tokens: newTokenData.tokens_remaining, error: null };
   } catch (error) {
-    console.error('Error inesperado al inicializar tokens:', error);
+    console.error('Error al inicializar tokens:', error);
     return { tokens: 0, error };
   }
 };
@@ -79,190 +63,129 @@ export const initializeUserTokens = async (userId) => {
  */
 export const getUserTokens = async (userId) => {
   try {
-    // Si no hay userId, no hacer nada
-    if (!userId) {
-      return { tokens: 0, error: new Error('Usuario no autenticado') };
+    // Obtener token de autenticación
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { tokens: 0, error: new Error('No hay sesión activa') };
     }
 
-    // Verificar si el usuario ya tiene tokens asignados
-    const { data, error } = await executeWithRetry(() =>
-      supabase
-        .from('user_tokens')
-        .select('tokens_remaining')
-        .eq('user_id', userId)
-        .single()
+    // Usar nuestra API para obtener tokens
+    const response = await executeWithRetry(() => 
+      axios.get(`/api/tokens/${userId}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
+      })
     );
 
-    if (error) {
-      // Si el error es que no se encontró el registro, inicializar tokens
-      if (error.code === 'PGRST116') {
+    if (response.data && response.data.success) {
+      return { tokens: response.data.data.tokens, error: null };
+    } else {
+      // Si no hay tokens, inicializarlos
+      if (response.data?.message?.includes('no encontrado')) {
         return await initializeUserTokens(userId);
       }
-      
-      console.error('Error al obtener tokens del usuario:', error);
+      return { tokens: 0, error: new Error(response.data?.message || 'Error al obtener tokens') };
+    }
+  } catch (error) {
+    console.error('Error al obtener tokens:', error);
+    
+    // Intenta inicializar si es posible que no existan
+    try {
+      return await initializeUserTokens(userId);
+    } catch {
       return { tokens: 0, error };
     }
-
-    return { tokens: data.tokens_remaining, error: null };
-  } catch (error) {
-    console.error('Error inesperado al obtener tokens:', error);
-    return { tokens: 0, error };
   }
 };
 
 /**
  * Usa un token del usuario
  * @param {string} userId - ID del usuario
- * @returns {Promise<{success: boolean, tokensRemaining: number, error: Error|null}>}
+ * @returns {Promise<{success: boolean, tokens: number, error: Error|null}>}
  */
 export const useToken = async (userId) => {
   try {
-    // Si no hay userId, no hacer nada
-    if (!userId) {
-      return { 
-        success: false, 
-        tokensRemaining: 0, 
-        error: 'Usuario no autenticado' 
-      };
+    // Obtener token de autenticación
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, tokens: 0, error: new Error('No hay sesión activa') };
     }
 
-    // Obtener tokens actuales
-    const { tokens, error: getError } = await getUserTokens(userId);
-    
-    if (getError) {
-      return { 
-        success: false, 
-        tokensRemaining: 0, 
-        error: getError.message || 'Error al obtener tokens' 
-      };
-    }
-
-    // Verificar si hay tokens disponibles
-    if (tokens <= 0) {
-      return { 
-        success: false, 
-        tokensRemaining: 0, 
-        error: 'No hay tokens disponibles' 
-      };
-    }
-
-    // Actualizar tokens
-    const newTokenAmount = tokens - 1;
-    const { data, error: updateError } = await executeWithRetry(() =>
-      supabase
-        .from('user_tokens')
-        .update({ tokens_remaining: newTokenAmount })
-        .eq('user_id', userId)
-        .select()
-        .single()
+    // Usar nuestra API para usar un token
+    const response = await executeWithRetry(() => 
+      axios.post('/api/tokens/use', 
+        { userId },
+        { 
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
     );
 
-    if (updateError) {
-      console.error('Error al actualizar tokens del usuario:', updateError);
+    if (response.data && response.data.success) {
+      return { 
+        success: true, 
+        tokens: response.data.data.tokens, 
+        error: null 
+      };
+    } else {
       return { 
         success: false, 
-        tokensRemaining: tokens, 
-        error: updateError.message || 'Error al actualizar tokens' 
+        tokens: 0, 
+        error: new Error(response.data?.message || 'Error al usar token') 
       };
     }
-
-    return { 
-      success: true, 
-      tokensRemaining: data.tokens_remaining, 
-      error: null 
-    };
   } catch (error) {
-    console.error('Error inesperado al usar token:', error);
-    return { 
-      success: false, 
-      tokensRemaining: 0, 
-      error: error.message || 'Error inesperado al usar token' 
-    };
+    console.error('Error al usar token:', error);
+    return { success: false, tokens: 0, error };
   }
 };
 
 /**
- * Recarga los tokens de un usuario
+ * Recarga los tokens del usuario (una vez al día)
  * @param {string} userId - ID del usuario
- * @param {number} amount - Cantidad de tokens a añadir (predeterminado MAX_TOKENS)
- * @returns {Promise<{success: boolean, newTotal: number, error: Error|null}>}
+ * @returns {Promise<{success: boolean, tokens: number, error: Error|null}>}
  */
-export const refillTokens = async (userId, amount = MAX_TOKENS) => {
+export const refillTokens = async (userId) => {
   try {
-    // Si no hay userId, no hacer nada
-    if (!userId) {
-      return { 
-        success: false, 
-        newTotal: 0, 
-        error: 'Usuario no autenticado' 
-      };
+    // Obtener token de autenticación
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, tokens: 0, error: new Error('No hay sesión activa') };
     }
 
-    // Primero verificamos los tokens actuales
-    const { tokens: currentTokens, error: getError } = await getUserTokens(userId);
-    
-    if (getError) {
-      // Si el usuario no tiene tokens, inicializarlos
-      if (getError.code === 'PGRST116') {
-        const { tokens, error: initError } = await initializeUserTokens(userId);
-        
-        if (initError) {
-          return { 
-            success: false, 
-            newTotal: 0, 
-            error: initError.message || 'Error al inicializar tokens' 
-          };
+    // Usar nuestra API para recargar tokens
+    const response = await executeWithRetry(() => 
+      axios.post('/api/tokens/refill', 
+        { userId },
+        { 
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
-        
-        return { 
-          success: true, 
-          newTotal: tokens, 
-          error: null 
-        };
-      }
-      
-      return { 
-        success: false, 
-        newTotal: 0, 
-        error: getError.message || 'Error al obtener tokens actuales' 
-      };
-    }
-
-    // Actualizar tokens
-    const newTokenAmount = currentTokens + amount;
-    const { data, error: updateError } = await executeWithRetry(() =>
-      supabase
-        .from('user_tokens')
-        .update({ 
-          tokens_remaining: newTokenAmount,
-          last_refill: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .select()
-        .single()
+      )
     );
 
-    if (updateError) {
-      console.error('Error al recargar tokens del usuario:', updateError);
+    if (response.data && response.data.success) {
+      return { 
+        success: true, 
+        tokens: response.data.data.tokens, 
+        error: null 
+      };
+    } else {
       return { 
         success: false, 
-        newTotal: currentTokens, 
-        error: updateError.message || 'Error al recargar tokens' 
+        tokens: response.data.data?.tokens || 0, 
+        error: new Error(response.data?.message || 'Error al recargar tokens') 
       };
     }
-
-    return { 
-      success: true, 
-      newTotal: data.tokens_remaining, 
-      error: null 
-    };
   } catch (error) {
-    console.error('Error inesperado al recargar tokens:', error);
-    return { 
-      success: false, 
-      newTotal: 0, 
-      error: error.message || 'Error inesperado al recargar tokens' 
-    };
+    console.error('Error al recargar tokens:', error);
+    return { success: false, tokens: 0, error };
   }
 };
 

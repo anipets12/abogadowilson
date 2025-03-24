@@ -22,6 +22,7 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   tokens        Token[]
+  userTokens    UserToken?
   referralLinks ReferralLink[]
   referredBy    String?
   forumPosts    ForumPost[]
@@ -35,6 +36,16 @@ model Token {
   user      User     @relation(fields: [userId], references: [id])
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model UserToken {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  tokensRemaining Int      @default(3)
+  lastRefill      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model ReferralLink {
