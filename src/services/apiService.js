@@ -24,37 +24,12 @@ const api = axios.create({
 
 // Función para manejar errores de red de manera uniforme
 const handleNetworkError = (error) => {
-  console.error('Error de red:', error);
-  
-  // Si es un error de timeout
-  if (error.code === 'ECONNABORTED') {
-    return { 
-      data: null, 
-      error: { 
-        message: 'La solicitud tardó demasiado tiempo. Por favor, inténtalo de nuevo.', 
-        status: 408 
-      } 
-    };
-  }
-  
-  // Si no hay respuesta del servidor
-  if (!error.response) {
-    return { 
-      data: null, 
-      error: { 
-        message: 'No se pudo conectar con el servidor. Verifica tu conexión a internet.', 
-        status: 0 
-      } 
-    };
-  }
-  
-  // Para otros errores HTTP
-  return { 
-    data: null, 
-    error: { 
-      message: error.response.data?.message || 'Ha ocurrido un error. Por favor, inténtalo de nuevo.', 
-      status: error.response.status 
-    } 
+  const errorMessage = error.response?.data?.message || error.message || 'Error de red';
+  return {
+    error: {
+      message: errorMessage,
+      status: error.response?.status || 500
+    }
   };
 };
 
@@ -75,20 +50,34 @@ api.interceptors.request.use(
 // Interceptor para manejar respuestas y errores
 api.interceptors.response.use(
   (response) => {
-    // Procesar respuesta exitosa
     return { data: response.data, error: null };
   },
   (error) => {
-    // Si es un error de autenticación (401), limpiar token
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('authToken');
-      // Si estamos en una página que requiere autenticación, redirigir al login
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+    // Manejo mejorado de errores
+    const errorResponse = {
+      success: false,
+      error: {
+        message: error.response?.data?.message || 'Error de servidor',
+        code: error.response?.status || 500,
+        details: error.response?.data?.details || null
       }
+    };
+
+    // Manejar errores específicos
+    if (error.response?.status === 401) {
+      localStorage.removeItem('authToken');
+      window.location.href = '/login?session=expired';
     }
-    
-    return Promise.resolve(handleNetworkError(error));
+
+    if (error.response?.status === 403) {
+      window.location.href = '/acceso-denegado';
+    }
+
+    if (!navigator.onLine) {
+      errorResponse.error.message = 'Error de conexión. Por favor, verifica tu internet.';
+    }
+
+    return Promise.resolve(errorResponse);
   }
 );
 
@@ -97,7 +86,11 @@ export const authService = {
   // Registrar un nuevo usuario
   async register(userData) {
     try {
-      return await api.post('/auth/register', userData);
+      const response = await api.post('/auth/register', userData);
+      if (response.data?.token) {
+        localStorage.setItem('authToken', response.data.token);
+      }
+      return response;
     } catch (error) {
       console.error('Error en registro:', error);
       return handleNetworkError(error);
@@ -108,7 +101,7 @@ export const authService = {
   async login(email, password) {
     try {
       const response = await api.post('/auth/login', { email, password });
-      if (response.data && response.data.token) {
+      if (response.data?.token) {
         localStorage.setItem('authToken', response.data.token);
       }
       return response;
@@ -122,11 +115,8 @@ export const authService = {
   async signOut() {
     try {
       localStorage.removeItem('authToken');
-      // No es necesario llamar a un endpoint para cerrar sesión
-      // ya que estamos usando tokens JWT que se validan en el servidor
-      return { data: { success: true }, error: null };
+      return { success: true };
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
       return handleNetworkError(error);
     }
   },
