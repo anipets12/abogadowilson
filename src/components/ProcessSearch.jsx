@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '../App';
+import { dataService } from '../services/apiService';
 import { FaSearch, FaSpinner, FaExclamationTriangle, FaFileAlt } from 'react-icons/fa';
 
 const ProcessSearch = () => {
@@ -41,7 +41,7 @@ const ProcessSearch = () => {
 
   const fetchRecentSearches = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await dataService
         .from('searches')
         .select('*')
         .order('timestamp', { ascending: false })
@@ -68,7 +68,7 @@ const ProcessSearch = () => {
 
     try {
       // Guardar la búsqueda en Supabase
-      const { error: insertError } = await supabase.from('searches').insert([{
+      const { error: insertError } = await dataService.from('searches').insert([{
         search_type: searchParams.type,
         search_value: searchParams.value,
         province: searchParams.province,
@@ -78,7 +78,7 @@ const ProcessSearch = () => {
       if (insertError) throw insertError;
 
       // Realizar la búsqueda en la tabla de procesos judiciales
-      const { data, error: searchError } = await supabase
+      const { data, error: searchError } = await dataService
         .from('judicial_processes')
         .select('*')
         .or(`${searchParams.type}.ilike.%${searchParams.value}%`)

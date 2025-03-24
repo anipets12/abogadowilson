@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Disclosure, Menu, Transition, Popover } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon, ChevronDownIcon, UserIcon } from '@heroicons/react/24/outline';
 import { FaUsers, FaHandshake, FaComments, FaGavel, FaBook, FaShieldAlt, FaFileContract, FaFileAlt, FaUserTie, FaWhatsapp, FaPhone, FaEnvelope, FaUserPlus, FaSignInAlt, FaLock } from 'react-icons/fa';
-import { supabase } from '../../App';
+import { authService } from '../../services/apiService';
 
 const mainNavigation = [
   { name: 'Inicio', href: '/', current: false },
@@ -58,13 +58,13 @@ function Navbar() {
   useEffect(() => {
     // Establecer la sesión inicial
     const setInitialSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await authService.getSession();
       setSession(data.session);
     };
     setInitialSession();
 
     // Escuchar cambios en la autenticación
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = authService.onAuthStateChange(
       (event, newSession) => {
         setSession(newSession);
       }
@@ -229,7 +229,7 @@ function Navbar() {
                           {({ active }) => (
                             <button
                               onClick={async () => {
-                                await supabase.auth.signOut();
+                                await authService.signOut();
                               }}
                               className={classNames(
                                 active ? 'bg-blue-50' : '',

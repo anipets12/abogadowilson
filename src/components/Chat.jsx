@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../App';
+import { dataService } from '../services/apiService';
 import { FaPaperPlane, FaTimes, FaComments, FaUser, FaRobot, FaSpinner } from 'react-icons/fa';
 
 const Chat = () => {
@@ -53,7 +53,7 @@ const Chat = () => {
 
   const loadPreviousMessages = async (sessionId) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await dataService
         .from('chat_messages')
         .select('*')
         .eq('session_id', sessionId)
@@ -103,7 +103,7 @@ const Chat = () => {
 
     try {
       // Guardar mensaje del usuario en Supabase
-      const { error } = await supabase
+      const { error } = await dataService
         .from('chat_messages')
         .insert([userMessage]);
 
@@ -123,7 +123,7 @@ const Chat = () => {
         setIsLoading(false);
 
         // Guardar respuesta del bot en Supabase
-        await supabase
+        await dataService
           .from('chat_messages')
           .insert([botResponse]);
 

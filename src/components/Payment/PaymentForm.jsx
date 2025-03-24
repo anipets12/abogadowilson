@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../App';
+import { dataService } from '../../services/apiService';
 
 const PaymentForm = () => {
   const [cardNumber, setCardNumber] = useState('');

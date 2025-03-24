@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { generateLegalAdvice } from '../../utils/openai';
-import { supabase } from '../../App';
+import { dataService } from '../../services/apiService';
 
 // Componente para consultas de IA
 const AIConsultation = () => {
@@ -17,7 +17,7 @@ const AIConsultation = () => {
   // Verificar si el usuario está autenticado
   useEffect(() => {
     const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await dataService.auth.getSession();
       if (data.session) {
         setUser(data.session.user);
       }
@@ -25,7 +25,7 @@ const AIConsultation = () => {
     
     checkUser();
     
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = dataService.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
     });
 
@@ -41,7 +41,7 @@ const AIConsultation = () => {
     if (user) {
       const fetchRecentQueries = async () => {
         try {
-          const { data, error } = await supabase
+          const { data, error } = await dataService
             .from('legal_queries')
             .select('query, area, created_at')
             .eq('user_id', user.id)
@@ -84,7 +84,7 @@ const AIConsultation = () => {
       
       // Guardar la consulta en Supabase si el usuario está autenticado
       if (user) {
-        await supabase
+        await dataService
           .from('legal_queries')
           .insert([{
             user_id: user.id,
@@ -94,7 +94,7 @@ const AIConsultation = () => {
           }]);
           
         // Actualizar consultas recientes
-        const { data } = await supabase
+        const { data } = await dataService
           .from('legal_queries')
           .select('query, area, created_at')
           .eq('user_id', user.id)

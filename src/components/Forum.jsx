@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import supabase, { fetchData, insertData, getCurrentUser } from '../config/supabase';
+import { dataService, authService } from '../services/apiService';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -29,7 +29,7 @@ export default function Forum() {
     const loadTopics = async () => {
       try {
         setLoading(true);
-        const { data, success } = await fetchData('topics');
+        const { data, success } = await dataService.fetchData('topics');
         
         if (success && data) {
           setTopics(data);
@@ -97,7 +97,7 @@ export default function Forum() {
     };
 
     const checkCurrentUser = async () => {
-      const { user } = await getCurrentUser();
+      const { user } = await authService.getCurrentUser();
       setCurrentUser(user);
     };
 
@@ -134,7 +134,7 @@ export default function Forum() {
         excerpt: newTopicForm.message.substring(0, 150) + (newTopicForm.message.length > 150 ? '...' : '')
       };
 
-      const { data, success } = await insertData('topics', newTopic);
+      const { data, success } = await dataService.insertData('topics', newTopic);
       
       if (success && data) {
         setTopics([data[0], ...topics]);

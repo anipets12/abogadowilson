@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../App';
+import { dataService } from '../services/apiService';
 
 const ConsultasBase = ({ children, queryType }) => {
   const [queryCount, setQueryCount] = useState(0);
@@ -9,13 +9,13 @@ const ConsultasBase = ({ children, queryType }) => {
 
   useEffect(() => {
     const checkQueryLimit = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await dataService.auth.getUser();
       if (!user) {
         navigate('/login');
         return;
       }
 
-      const { count } = await supabase
+      const { count } = await dataService
         .from('user_queries')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
@@ -34,8 +34,8 @@ const ConsultasBase = ({ children, queryType }) => {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase
+    const { data: { user } } = await dataService.auth.getUser();
+    await dataService
       .from('user_queries')
       .insert([{ user_id: user.id, query_type: queryType }]);
 
