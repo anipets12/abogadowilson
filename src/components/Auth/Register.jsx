@@ -2,26 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook } from 'react-icons/fa';
-import axios from 'axios';
+import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { authService } from '../../services/apiService';
 
 const Register = () => {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(null);
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  
+  const { user, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, setUser } = useAuth();
   
-  // Obtener código de referido de los parámetros de URL si existe
+  // Extraer el código de referido de la URL si existe
   const queryParams = new URLSearchParams(location.search);
   const referralCode = queryParams.get('ref');
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    referralCode: referralCode || ''
+  });
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [networkRetry, setNetworkRetry] = useState(false);
   
   // Si el usuario ya está autenticado, redirigir al dashboard
   useEffect(() => {
@@ -29,18 +34,13 @@ const Register = () => {
       navigate('/dashboard');
     }
   }, [user, navigate]);
-
-  const validatePassword = (password) => {
-    // Mínimo 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    return passwordRegex.test(password);
-  };
-
+  
   // Función para manejar reintentos en caso de errores de red
   const executeWithRetry = async (fn, maxRetries = 3) => {
     let lastError;
     for (let i = 0; i < maxRetries; i++) {
       try {
+        setNetworkRetry(i > 0);
         return await fn();
       } catch (err) {
         console.log(`Intento ${i + 1} fallido. Reintentando...`);
@@ -49,71 +49,79 @@ const Register = () => {
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
       }
     }
+    setNetworkRetry(false);
     throw lastError;
   };
-
+  
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Limpiar errores al cambiar el formulario
+    if (error) setError(null);
+  };
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
+    
     try {
       // Validaciones básicas
-      if (!fullName) throw new Error('El nombre completo es obligatorio');
-      if (!email) throw new Error('El correo electrónico es obligatorio');
-      if (!password) throw new Error('La contraseña es obligatoria');
-      if (password !== confirmPassword) throw new Error('Las contraseñas no coinciden');
-      if (!validatePassword(password)) {
-        throw new Error('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial');
+      if (!formData.name.trim()) {
+        throw new Error('El nombre es obligatorio');
       }
-      if (!acceptTerms) throw new Error('Debe aceptar los términos y condiciones');
-
-      // Registrar usuario usando la API
-      const response = await executeWithRetry(() => 
-        axios.post('/api/auth/register', {
-          name: fullName,
-          email,
-          password,
-          referralCode
-        }, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-      );
       
-      if (!response.data.success) {
-        throw new Error(response.data.message || 'Error al registrar usuario');
+      if (!formData.email.trim()) {
+        throw new Error('El correo electrónico es obligatorio');
       }
-
-      const { token, user: userData } = response.data.data;
       
-      // Guardar token en localStorage
-      localStorage.setItem('authToken', token);
+      if (!formData.password) {
+        throw new Error('La contraseña es obligatoria');
+      }
       
-      // Actualizar contexto de autenticación
-      setUser(userData);
-
-      toast.success('Registro exitoso. Bienvenido/a!');
+      if (formData.password.length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres');
+      }
       
-      // Pequeña espera para asegurar que los datos de sesión se guarden correctamente
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 500);
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error('Las contraseñas no coinciden');
+      }
+      
+      console.log('Intentando registrar usuario:', formData.email);
+      
+      // Usar el método de registro del contexto de autenticación
+      const result = await executeWithRetry(() => register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        referralCode: formData.referralCode
+      }));
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error al registrar usuario');
+      }
+      
+      console.log('Registro exitoso');
+      toast.success('Registro exitoso. ¡Bienvenido!');
+      
+      // Redirigir al usuario al dashboard
+      navigate('/dashboard');
     } catch (err) {
-      console.error('Error de registro:', err);
+      console.error('Error en registro:', err);
       
-      // Mensajes de error mejorados y específicos
+      // Mensajes de error mejorados
       let errorMessage;
       
       if (err.response) {
-        // Error del servidor con respuesta
         errorMessage = err.response.data.message || 'Error en el servidor. Por favor, intenta más tarde.';
       } else if (err.request) {
-        // Error de conexión (no se recibió respuesta)
         errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.';
-      } else if (err.message.includes('email') || err.message.toLowerCase().includes('correo')) {
-        errorMessage = 'El correo electrónico ya está en uso o es inválido.';
+      } else if (err.message.includes('email')) {
+        errorMessage = 'El correo electrónico ya está en uso o no es válido.';
       } else {
         errorMessage = err.message;
       }
@@ -122,65 +130,10 @@ const Register = () => {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+      setNetworkRetry(false);
     }
   };
-
-  const handleSocialSignUp = async (provider) => {
-    try {
-      setLoading(true);
-      
-      // Implementación unificada para proveedores sociales
-      const response = await executeWithRetry(() => 
-        axios.post('/api/auth/social-login', {
-          provider,
-        }, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-      );
-      
-      if (!response.data.success) {
-        throw new Error(response.data.message || 'Error al iniciar sesión con ' + provider);
-      }
-
-      const { token, user: userData } = response.data.data;
-      
-      // Guardar token en localStorage
-      localStorage.setItem('authToken', token);
-      
-      // Actualizar contexto de autenticación
-      setUser(userData);
-
-      toast.success('Inicio de sesión exitoso con ' + provider);
-      
-      // Pequeña espera para asegurar que los datos de sesión se guarden correctamente
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 500);
-    } catch (err) {
-      console.error(`Error en registro con ${provider}:`, err);
-      
-      // Mensajes de error mejorados y específicos
-      let errorMessage;
-      
-      if (err.response) {
-        // Error del servidor con respuesta
-        errorMessage = err.response.data.message || 'Error en el servidor. Por favor, intenta más tarde.';
-      } else if (err.request) {
-        // Error de conexión (no se recibió respuesta)
-        errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.';
-      } else {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
-      toast.error(`Error al registrarse con ${provider}: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
@@ -197,39 +150,56 @@ const Register = () => {
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="rounded-md shadow-sm -space-y-px">
             <div className="relative mb-4">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaUser className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                id="full-name"
-                name="fullName"
+                id="name"
+                name="name"
                 type="text"
                 autoComplete="name"
                 required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
                 className="appearance-none rounded-md relative block w-full pl-10 pr-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Nombre completo"
+                value={formData.name}
+                onChange={handleChange}
               />
             </div>
+            
             <div className="relative mb-4">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaEnvelope className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                id="email-address"
+                id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 className="appearance-none rounded-md relative block w-full pl-10 pr-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Correo electrónico"
+                value={formData.email}
+                onChange={handleChange}
               />
             </div>
+            
             <div className="relative mb-4">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaLock className="h-5 w-5 text-gray-400" />
@@ -240,10 +210,10 @@ const Register = () => {
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 className="appearance-none rounded-md relative block w-full pl-10 pr-10 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Contraseña"
+                value={formData.password}
+                onChange={handleChange}
               />
               <div 
                 className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
@@ -256,93 +226,76 @@ const Register = () => {
                 )}
               </div>
             </div>
-            <div className="relative">
+            
+            <div className="relative mb-4">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaLock className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                id="confirm-password"
+                id="confirmPassword"
                 name="confirmPassword"
-                type={showPassword ? "text" : "password"}
+                type={showConfirmPassword ? "text" : "password"}
                 autoComplete="new-password"
                 required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="appearance-none rounded-md relative block w-full pl-10 pr-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-md relative block w-full pl-10 pr-10 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Confirmar contraseña"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+              />
+              <div 
+                className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? (
+                  <FaEyeSlash className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <FaEye className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+            </div>
+            
+            {/* Campo opcional para código de referido */}
+            <div className="relative mb-4">
+              <input
+                id="referralCode"
+                name="referralCode"
+                type="text"
+                className="appearance-none rounded-md relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="Código de referido (opcional)"
+                value={formData.referralCode}
+                onChange={handleChange}
               />
             </div>
           </div>
-
-          <div className="flex items-center">
-            <input
-              id="accept-terms"
-              name="acceptTerms"
-              type="checkbox"
-              checked={acceptTerms}
-              onChange={(e) => setAcceptTerms(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="accept-terms" className="ml-2 block text-sm text-gray-900">
-              Acepto los{' '}
-              <Link to="/terminos" className="text-blue-600 hover:text-blue-500">
-                términos y condiciones
-              </Link>
-            </label>
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
+          
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {loading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-white rounded-full"></div>
-                  Registrando...
-                </div>
-              ) : (
-                'Registrarse'
-              )}
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {networkRetry ? 'Reintentando...' : 'Registrando...'}
+                </>
+              ) : 'Registrarse'}
             </button>
           </div>
         </form>
-
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">O continuar con</span>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleSocialSignUp('google')}
-              disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              <FaGoogle className="text-red-500 mr-2 h-5 w-5" />
-              Google
-            </button>
-            <button
-              onClick={() => handleSocialSignUp('facebook')}
-              disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              <FaFacebook className="text-blue-600 mr-2 h-5 w-5" />
-              Facebook
-            </button>
-          </div>
+        
+        <div className="text-center text-sm text-gray-600 mt-4">
+          Al registrarte, aceptas nuestros{' '}
+          <Link to="/terminos-condiciones" className="font-medium text-blue-600 hover:text-blue-500">
+            Términos y Condiciones
+          </Link>{' '}
+          y{' '}
+          <Link to="/privacidad" className="font-medium text-blue-600 hover:text-blue-500">
+            Política de Privacidad
+          </Link>.
         </div>
       </div>
     </div>

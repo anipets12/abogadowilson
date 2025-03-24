@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '../config/supabase';
+import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -71,31 +71,34 @@ export default function Registration() {
       console.log('Intentando registrar usuario:', formData.email);
       
       // Usar la función con reintentos para el registro
-      const { data, error: signUpError } = await executeWithRetry(() => 
-        supabase.auth.signUp({
+      const response = await executeWithRetry(() => 
+        axios.post('/api/auth/register', {
+          name: `${formData.firstName} ${formData.lastName}`,
           email: formData.email,
           password: formData.password,
-          options: {
-            data: {
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              phone: formData.phone,
-              address: formData.address
-            },
-            emailRedirectTo: `${window.location.origin}/login`
+          phone: formData.phone,
+          address: formData.address
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
           }
         })
       );
 
-      if (signUpError) {
-        console.error('Error de registro Supabase:', signUpError);
-        throw signUpError;
+      if (!response.data.success) {
+        console.error('Error de registro:', response.data.message);
+        throw new Error(response.data.message || 'Error al registrar usuario');
       }
 
-      console.log('Registro exitoso:', data);
+      console.log('Registro exitoso:', response.data);
+      
+      // Guardar token en localStorage si lo devuelve la API
+      if (response.data.data?.token) {
+        localStorage.setItem('authToken', response.data.data.token);
+      }
       
       // Mostrar mensaje de éxito
-      toast.success('Usuario registrado con éxito. Revisa tu correo para verificar tu cuenta.');
+      toast.success('Usuario registrado con éxito. Ahora puedes iniciar sesión.');
       setSuccess(true);
       
       // Limpiar formulario después de registro exitoso
@@ -110,22 +113,29 @@ export default function Registration() {
         acceptTerms: false
       });
       
-      // Opcionalmente redirigir al usuario después de un tiempo
+      // Redirigir al usuario después de 2 segundos
       setTimeout(() => {
-        navigate('/login');
-      }, 5000);
+        if (response.data.data?.token) {
+          navigate('/dashboard'); // Si ya está autenticado
+        } else {
+          navigate('/login'); // Si necesita iniciar sesión
+        }
+      }, 2000);
     } catch (error) {
-      console.error('Error completo de registro:', error);
+      console.error('Error al registrar:', error);
       
-      // Mensajes de error más amigables para el usuario
+      // Manejar diferentes tipos de errores
       let errorMessage;
       
-      if (error.message && error.message.includes('email')) {
-        errorMessage = 'El correo electrónico ingresado ya está en uso o no es válido';
-      } else if (error.message && (error.message.includes('fetch') || error.message.includes('network') || error.name === 'TypeError')) {
-        errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente';
+      if (error.response) {
+        // El servidor respondió con un código de error
+        errorMessage = error.response.data.message || 'Error en el servidor. Por favor, intenta más tarde.';
+      } else if (error.request) {
+        // La solicitud se realizó pero no se recibió respuesta
+        errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.';
       } else {
-        errorMessage = error.message || 'Error al registrar usuario';
+        // Error en la configuración de la solicitud
+        errorMessage = error.message;
       }
       
       setError(errorMessage);
@@ -137,193 +147,201 @@ export default function Registration() {
   };
 
   return (
-    <div className="py-12 bg-secondary-50">
-      <div className="container-custom">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="section-title">Registro de Usuario</h2>
-            <p className="text-xl text-secondary-600">
-              Únase a nuestra comunidad legal y acceda a servicios exclusivos
-            </p>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            {success ? (
-              <div className="card text-center py-8">
-                <svg
-                  className="w-16 h-16 text-green-500 mx-auto mb-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <h3 className="text-2xl font-bold text-secondary-900 mb-2">
-                  ¡Registro Exitoso!
-                </h3>
-                <p className="text-secondary-600 mb-6">
-                  Por favor, verifique su correo electrónico para activar su cuenta.
-                </p>
-                <motion.button
-                  onClick={() => setSuccess(false)}
-                  className="btn-primary"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Registrar Otro Usuario
-                </motion.button>
+    <section className="py-12 bg-gray-50">
+      <div className="container mx-auto px-4">
+        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="md:flex">
+            <div className="md:flex-shrink-0 bg-gradient-to-br from-blue-600 to-blue-800 md:w-48 flex flex-col justify-center items-center p-8 text-white">
+              <h3 className="text-2xl font-bold mb-4">Únete a nosotros</h3>
+              <p className="text-center">Tu portal para soluciones legales personalizadas</p>
+            </div>
+            <div className="p-8 md:p-12 w-full">
+              <div className="text-center mb-10">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Crear una cuenta</h2>
+                <p className="text-gray-600">Completa el formulario para comenzar</p>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="card space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-secondary-700 mb-1">
-                      Nombres
-                    </label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-secondary-700 mb-1">
-                      Apellidos
-                    </label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-1">
-                    Correo Electrónico
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="input-field"
-                    required
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-secondary-700 mb-1">
-                      Contraseña
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-secondary-700 mb-1">
-                      Confirmar Contraseña
-                    </label>
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-1">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="input-field"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-1">
-                    Dirección
-                  </label>
-                  <textarea
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    rows="3"
-                    className="input-field"
-                    required
-                  ></textarea>
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="acceptTerms"
-                    id="acceptTerms"
-                    checked={formData.acceptTerms}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
-                    required
-                  />
-                  <label
-                    htmlFor="acceptTerms"
-                    className="ml-2 block text-sm text-secondary-700"
+              
+              {success ? (
+                <div className="text-center py-10">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-20 h-20 mx-auto bg-green-500 rounded-full flex items-center justify-center mb-4"
                   >
-                    Acepto los términos y condiciones
-                  </label>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </motion.div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">¡Registro exitoso!</h3>
+                  <p className="text-gray-600 mb-6">Tu cuenta ha sido creada. Redirigiendo...</p>
                 </div>
-
-                {error && (
-                  <div className="p-4 bg-red-100 text-red-700 rounded-lg">
-                    {error}
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {error && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-red-700">{error}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                      <input
+                        id="firstName"
+                        name="firstName"
+                        type="text"
+                        autoComplete="given-name"
+                        required
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="Juan"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+                      <input
+                        id="lastName"
+                        name="lastName"
+                        type="text"
+                        autoComplete="family-name"
+                        required
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="Pérez"
+                      />
+                    </div>
                   </div>
-                )}
-
-                <motion.button
-                  type="submit"
-                  className="w-full btn-primary"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Registrando...' : 'Registrarse'}
-                </motion.button>
-              </form>
-            )}
-          </motion.div>
+                  
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="juan.perez@ejemplo.com"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="********"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">Confirmar contraseña</label>
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="********"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Teléfono (opcional)</label>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      autoComplete="tel"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="+57 300 123 4567"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Dirección (opcional)</label>
+                    <input
+                      id="address"
+                      name="address"
+                      type="text"
+                      autoComplete="street-address"
+                      value={formData.address}
+                      onChange={handleChange}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Calle 123 # 45-67"
+                    />
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="flex items-center h-5">
+                      <input
+                        id="acceptTerms"
+                        name="acceptTerms"
+                        type="checkbox"
+                        required
+                        checked={formData.acceptTerms}
+                        onChange={handleChange}
+                        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                    </div>
+                    <div className="ml-3 text-sm">
+                      <label htmlFor="acceptTerms" className="font-medium text-gray-700">
+                        Acepto los <a href="/terminos-condiciones" className="text-blue-600 hover:text-blue-500">Términos y Condiciones</a> y la <a href="/privacidad" className="text-blue-600 hover:text-blue-500">Política de Privacidad</a>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          {networkRetry ? 'Reintentando...' : 'Procesando...'}
+                        </>
+                      ) : 'Crear cuenta'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

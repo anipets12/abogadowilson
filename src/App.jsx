@@ -79,102 +79,127 @@ function App() {
   );
 }
 
+// Componente AppContent separado para usar el contexto de autenticación
 function AppContent() {
-  const { user, loading: isLoading } = useAuth();
-
-  // Función para proteger rutas que requieren autenticación
-  const RequireAuth = ({ children }) => {
-    if (isLoading) {
-      return <div className="loading-screen">Cargando...</div>;
-    }
-    
-    if (!user) {
-      return <Navigate to="/login" />;
-    }
-    
-    return children;
-  };
+  const { user, loading, authReady } = useAuth();
+  
+  // Mostrar un indicador de carga mientras se verifica la autenticación
+  if (loading && !authReady) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <Router>
-      <Toaster position="top-center" />
-      <Navbar />
-      <WhatsAppChat />
-      
-      <Routes>
-        {/* Rutas públicas */}
-        <Route path="/" element={
-          <>
-            <Hero />
-            <Services />
-            <Testimonials />
-            <Blog />
-            <ProcessSearch />
-            <Newsletter />
-          </>
-        } />
+      <div className="flex flex-col min-h-screen">
+        <Navbar />
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#333',
+              color: '#fff',
+            },
+          }}
+        />
         
-        {/* Servicios */}
-        <Route path="/servicios/penal" element={<Penal />} />
-        <Route path="/servicios/civil" element={<Civil />} />
-        <Route path="/servicios/comercial" element={<Comercial />} />
-        <Route path="/servicios/transito" element={<Transito />} />
-        <Route path="/servicios/aduanas" element={<Aduanas />} />
-        
-        {/* Consultas */}
-        <Route path="/consultas/penales" element={<ConsultasPenales />} />
-        <Route path="/consultas/transito" element={<ConsultasTransito />} />
-        <Route path="/consultas/civiles" element={<ConsultasCiviles />} />
-        
-        {/* Otras rutas */}
-        <Route path="/contacto" element={<ContactPage />} />
-        <Route path="/chat" element={<LiveChat />} />
-        <Route path="/noticias" element={<JudicialNews />} />
-        <Route path="/afiliados" element={<Afiliados />} />
-        <Route path="/referidos" element={<Referidos />} />
-        <Route path="/consulta" element={<ConsultationHub />} />
-        <Route path="/ebooks" element={<Ebooks />} />
-        <Route path="/politica-privacidad" element={<PrivacyPolicy />} />
-        <Route path="/terminos-condiciones" element={<TerminosCondiciones />} />
-        <Route path="/seguridad" element={<Seguridad />} />
-        
-        {/* Foro */}
-        <Route path="/foro" element={<Forum />} />
-        <Route path="/foro/tema/:id" element={<TopicDetail />} />
-        
-        {/* Autenticación */}
-        <Route path="/registro" element={<Register />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/recuperar-contrasena" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        
-        {/* Pagos */}
-        <Route path="/pago" element={<PaymentForm />} />
-        <Route path="/checkout" element={<CheckoutForm />} />
-        <Route path="/gracias" element={<ThankYouPage />} />
-        
-        {/* Rutas protegidas */}
-        <Route path="/dashboard" element={
-          <RequireAuth>
-            <DashboardPage />
-          </RequireAuth>
-        } />
-        <Route path="/mi-cuenta" element={
-          <RequireAuth>
-            <ClientDashboard />
-          </RequireAuth>
-        } />
-        <Route path="/citas" element={
-          <RequireAuth>
-            <AppointmentCalendar />
-          </RequireAuth>
-        } />
-      </Routes>
-      
-      <Footer />
-      <CookieConsent />
+        <main className="flex-grow">
+          <Routes>
+            {/* Rutas públicas */}
+            <Route path="/" element={
+              <>
+                <Hero />
+                <Services />
+                <Testimonials />
+                <Blog />
+                <ProcessSearch />
+                <Newsletter />
+              </>
+            } />
+            
+            {/* Servicios */}
+            <Route path="/servicios/penal" element={<Penal />} />
+            <Route path="/servicios/civil" element={<Civil />} />
+            <Route path="/servicios/comercial" element={<Comercial />} />
+            <Route path="/servicios/transito" element={<Transito />} />
+            <Route path="/servicios/aduanas" element={<Aduanas />} />
+            
+            {/* Consultas */}
+            <Route path="/consultas/penales" element={<ConsultasPenales />} />
+            <Route path="/consultas/transito" element={<ConsultasTransito />} />
+            <Route path="/consultas/civiles" element={<ConsultasCiviles />} />
+            
+            {/* Otras rutas */}
+            <Route path="/contacto" element={<ContactPage />} />
+            <Route path="/chat" element={<LiveChat />} />
+            <Route path="/noticias" element={<JudicialNews />} />
+            <Route path="/afiliados" element={<Afiliados />} />
+            <Route path="/referidos" element={<Referidos />} />
+            <Route path="/consulta" element={<ConsultationHub />} />
+            <Route path="/ebooks" element={<Ebooks />} />
+            <Route path="/politica-privacidad" element={<PrivacyPolicy />} />
+            <Route path="/terminos-condiciones" element={<TerminosCondiciones />} />
+            <Route path="/seguridad" element={<Seguridad />} />
+            
+            {/* Foro */}
+            <Route path="/foro" element={<Forum />} />
+            <Route path="/foro/tema/:id" element={<TopicDetail />} />
+            
+            {/* Autenticación */}
+            <Route path="/registro" element={<Register />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/recuperar-contrasena" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            
+            {/* Pagos */}
+            <Route path="/pago" element={<PaymentForm />} />
+            <Route path="/checkout" element={<CheckoutForm />} />
+            <Route path="/gracias" element={<ThankYouPage />} />
+            
+            {/* Rutas protegidas */}
+            <Route path="/dashboard" element={
+              <RequireAuth>
+                <DashboardPage />
+              </RequireAuth>
+            } />
+            <Route path="/mi-cuenta" element={
+              <RequireAuth>
+                <ClientDashboard />
+              </RequireAuth>
+            } />
+            <Route path="/citas" element={
+              <RequireAuth>
+                <AppointmentCalendar />
+              </RequireAuth>
+            } />
+          </Routes>
+        </main>
+
+        <Footer />
+        <WhatsAppChat />
+        <CookieConsent />
+        <Newsletter />
+      </div>
     </Router>
   );
+}
+
+function RequireAuth({ children }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="loading-screen">Cargando...</div>;
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+  
+  return children;
 }
 
 export default App;
