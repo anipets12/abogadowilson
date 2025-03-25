@@ -1,10 +1,10 @@
-name = "abogado-wilson-website"
-type = "javascript"
-# Usar el account_id correcto
-account_id = "f21b24d86935a055c03d21f7fffd1514"
-workers_dev = true
-route = ""
-zone_id = ""
+name = "abogado-wilson-worker"         # Nombre del Worker
+type = "javascript"                    # O "webpack", "rust", etc., según su proyecto
+account_id = "your_account_id"         # REEMPLAZAR con su ID de cuenta Cloudflare
+workers_dev = true                     # Para desplegar en el entorno de desarrollo de Workers
+route = ""                             # Defina la ruta si usa un dominio personalizado
+zone_id = ""                           # REEMPLAZAR si se usa un dominio personalizado
+
 pages_build_output_dir = "dist"  # Agregado para la configuración de Pages
 
 kv_namespaces = [
