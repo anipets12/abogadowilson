@@ -1,15 +1,13 @@
+type = "javascript"
 name = "abogado-wilson-website"
 main = "workers-site/index.js"
 compatibility_date = "2025-03-24"
-
 account_id = "your_account_id"
 workers_dev = true
 
-pages_build_output_dir = "dist"
-
 [build]
-command = "npm run build"
-watch_dir = "src"
+	command = "npm run build"
+	watch_dir = "src"
 
 [limits]
 memory_mb = 128
@@ -17,20 +15,16 @@ max_upload_size = "10MB"
 cpu_ms = 1000
 
 [env.production]
-workers_dev = false
 routes = [
   { pattern = "api.abogadowilson.com/*", custom_domain = true }
 ]
-d1_databases = [
-  { binding = "DB", database_name = "ebook_service", database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176" }
-]
-
 [env.production.vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "https://example.com"
 JWT_SECRET = "supersecret"
 SUPABASE_URL = "https://supabase.example.com"
 TURSO_DB_URL = "https://turso.example.com"
+
 kv_namespaces = [
   { binding = "SESSIONS", id = "prod-kv-sessions-id" },
   { binding = "KV_AUTH", id = "auth-store", preview_id = "auth-store-preview" },
@@ -39,16 +33,6 @@ kv_namespaces = [
 r2_buckets = [
   { binding = "EBOOKS_BUCKET", bucket_name = "ebooks", preview_bucket_name = "ebooks-dev" }
 ]
-
-[env.staging]
-vars = { ENVIRONMENT = "staging" }
-workers_dev = true
-
-[env.development]
-vars = { ENVIRONMENT = "development" }
-workers_dev = true
-DATABASE_URL = "prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlfa2V5IjoiMTRhNDU5ZTgtNjYxOC00ZGNmLTk1MWItYzAxMjNhNDFkMGE3IiwidGVuYW50X2lkIjoiY2IxYzRhMjEwMGZjYzA3YjQ4ZmI3MWY5Mzc2ZGFiMzhkNmYxMDBmYTY0NmVhYTY4NmVhYjRmYjQwOTgwYjFjOS"
-pages_build_output_dir = "dist"
 
 [triggers]
 crons = ["0 0 * * *"]
