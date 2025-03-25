@@ -1,44 +1,48 @@
-name = "abogado-wilson-worker"         # Nombre del Worker
-type = "javascript"                    # O "webpack", "rust", etc., según su proyecto
-account_id = "your_account_id"         # REEMPLAZAR con su ID de cuenta Cloudflare
-workers_dev = true                     # Para desplegar en el entorno de desarrollo de Workers
-route = ""                             # Defina la ruta si usa un dominio personalizado
-zone_id = ""                           # REEMPLAZAR si se usa un dominio personalizado
+name = "abogado-wilson-website"
+main = "workers-site/index.js"
+compatibility_date = "2025-03-24"
 
-pages_build_output_dir = "dist"  # Agregado para la configuración de Pages
+account_id = "your_account_id"
+workers_dev = true
 
-kv_namespaces = [
-  # Actualizado a ID de producción
-  { binding = "SESSIONS", id = "prod-kv-sessions-id" },
-  { binding = "KV_AUTH", id = "auth-store", preview_id = "auth-store-preview" },
-  # Actualizado a ID de producción
-  { binding = "EBOOKS", id = "prod-kv-ebooks-id" }
-]
+pages_build_output_dir = "dist"
 
-r2_buckets = [
-  { binding = "EBOOKS_BUCKET", bucket_name = "ebooks", preview_bucket_name = "ebooks-dev" }
-]
+[build]
+command = "npm run build"
+watch_dir = "src"
 
-[vars]
-ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://abogado-wilson.com"
-# Se reemplaza por un secret seguro en producción
-JWT_SECRET = "actual-secure-jwt-secret"
-SUPABASE_URL = "https://phzldiaohelbyobhjrnc.supabase.co"
-# Se actualiza a la URL real de Turso
-TURSO_DB_URL = "libsql://prod-turso-db-url"
+[limits]
+memory_mb = 128
+max_upload_size = "10MB"
+cpu_ms = 1000
 
 [env.production]
-vars = { ENVIRONMENT = "production" }
-# Se desactiva workers_dev en producción para desplegar sólo por custom domain
 workers_dev = false
 routes = [
   { pattern = "api.abogadowilson.com/*", custom_domain = true }
 ]
+d1_databases = [
+  { binding = "DB", database_name = "ebook_service", database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176" }
+]
+
+[env.production.vars]
+ENVIRONMENT = "production"
+ALLOWED_ORIGINS = "https://example.com"
+JWT_SECRET = "supersecret"
+SUPABASE_URL = "https://supabase.example.com"
+TURSO_DB_URL = "https://turso.example.com"
+kv_namespaces = [
+  { binding = "SESSIONS", id = "prod-kv-sessions-id" },
+  { binding = "KV_AUTH", id = "auth-store", preview_id = "auth-store-preview" },
+  { binding = "EBOOKS", id = "prod-kv-ebooks-id" }
+]
+r2_buckets = [
+  { binding = "EBOOKS_BUCKET", bucket_name = "ebooks", preview_bucket_name = "ebooks-dev" }
+]
 
 [env.staging]
 vars = { ENVIRONMENT = "staging" }
-workers_dev = true  # Permite despliegue en modo dev para pruebas
+workers_dev = true
 
 [env.development]
 vars = { ENVIRONMENT = "development" }
@@ -46,28 +50,8 @@ workers_dev = true
 DATABASE_URL = "prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlfa2V5IjoiMTRhNDU5ZTgtNjYxOC00ZGNmLTk1MWItYzAxMjNhNDFkMGE3IiwidGVuYW50X2lkIjoiY2IxYzRhMjEwMGZjYzA3YjQ4ZmI3MWY5Mzc2ZGFiMzhkNmYxMDBmYTY0NmVhYTY4NmVhYjRmYjQwOTgwYjFjOS"
 pages_build_output_dir = "dist"
 
-[build]
-command = "npm run build"
-watch_dir = "src"
-upload.format = "service-worker"
-main = "src/worker.js"
-compatibility_date = "2023-10-01"  # Fecha actualizada para mayor compatibilidad
-
-[[d1_databases]]
-binding = "DB"
-database_name = "ebook_service"
-database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176"
-
-[site]
-bucket = "./dist"
-entry-point = "workers-site"
-
 [triggers]
 crons = ["0 0 * * *"]
 
 [placement]
 mode = "smart"
-
-[limits]
-memory_mb = 128
-max_upload_size = "10MB"
