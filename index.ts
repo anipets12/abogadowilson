@@ -55,7 +55,6 @@ export default {
   
       // Ejemplo de endpoint adicional (integración Supabase)
       if (pathname.startsWith('/api/supabase')) {
-        // ...existing code para integración Supabase...
         const { data, error } = await supabase.from('table_name').select('*');
         if (error) {
           throw error;
@@ -64,7 +63,6 @@ export default {
       }
   
       // Se pueden agregar endpoints adicionales para Turso, KV o D1 según sea necesario
-      // ...existing code...
   
       return new Response(JSON.stringify({ message: 'Not Found' }), { headers: { ...headers, 'Content-Type': 'application/json' }, status: 404 });
     } catch (err: any) {
