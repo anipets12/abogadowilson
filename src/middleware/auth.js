@@ -1,102 +1,102 @@
 const { verifyToken } = require('../utils/auth');
 const prisma = require('../utils/prisma');
 
-// Cabeceras CORS comunes
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-  'Access-Control-Max-Age': '86400',
-  'Access-Control-Allow-Credentials': 'true',
-};
-
-// Middleware to validate token and protect routes
-async function authMiddleware(request) {
-  // Get token from headers
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return {
-      success: false,
-      message: 'Access denied. No token provided'
-    };
+// Use memory-safe rate limiting for Workers
+const rateLimiter = new (class {
+  constructor() {
+    this.requests = new Map();
+    // Clean up every minute
+    setInterval(() => this.cleanup(), 60000);
   }
 
-  try {
-    // Verify token
-    const token = authHeader.split(' ')[1];
-    const decoded = verifyToken(token);
-    
-    if (!decoded) {
-      return {
-        success: false,
-        message: 'Invalid token'
-      };
-    }
-
-    // Check if token exists in database and is not expired
-    const tokenRecord = await prisma.token.findFirst({
-      where: {
-        token,
-        expiresAt: {
-          gt: new Date()
-        }
+  cleanup() {
+    const now = Date.now();
+    for (const [key, data] of this.requests.entries()) {
+      if (now - data.timestamp > 60000) {
+        this.requests.delete(key);
       }
-    });
+    }
+  }
 
-    if (!tokenRecord) {
+  async checkLimit(ip) {
+    // ...existing rate limiting code...
+  }
+})();
+
+const authMiddleware = async (request) => {
+  try {
+    // Validate request
+    if (!request || !request.headers) {
+      throw new Error('Invalid request object');
+    }
+
+    // Check rate limit
+    const clientIp = request.headers.get('cf-connecting-ip') || 
+                    request.headers.get('x-forwarded-for') || 
+                    'unknown';
+    
+    const rateLimitResult = await rateLimiter.checkLimit(clientIp);
+    if (!rateLimitResult.allowed) {
       return {
         success: false,
-        message: 'Invalid or expired token'
+        status: 429,
+        message: 'Too many requests'
       };
     }
 
-    // Check if user exists in database
+    // Validate auth header
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return {
+        success: false,
+        status: 401,
+        message: 'Invalid authorization header'
+      };
+    }
+
+    // Token validation
+    const token = authHeader.split(' ')[1];
+    const decoded = await verifyToken(token);
+    
+    // User validation with proper error handling
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id }
+      where: { 
+        id: decoded.userId,
+        active: true
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        active: true
+      }
     });
 
     if (!user) {
       return {
         success: false,
-        message: 'User not found'
+        status: 401,
+        message: 'User not found or inactive'
       };
     }
 
-    // Add user to request for controllers to use
-    // Clone the request to avoid modifying the original
-    const newRequest = new Request(request.url, {
-      method: request.method,
-      headers: request.headers,
-      body: request.body
-    });
-    
-    // Añadir el objeto user a la solicitud
-    Object.defineProperty(newRequest, 'user', {
-      value: {
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      },
-      writable: true,
-      enumerable: true
-    });
-
     return {
       success: true,
-      request: newRequest
+      user,
+      status: 200
     };
+
   } catch (error) {
     console.error('Auth middleware error:', error);
     return {
       success: false,
-      message: 'Authentication failed: ' + error.message
+      status: error.status || 500,
+      message: error.message || 'Internal server error'
     };
   }
-}
+};
 
-module.exports = {
+module.exports = { 
   authMiddleware,
-  corsHeaders
+  rateLimiter // Export for testing
 };

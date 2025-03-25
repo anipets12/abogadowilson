@@ -1,4 +1,4 @@
-const prisma = require('../utils/prisma');
+@const prisma = require('../utils/prisma');
 const { hashPassword, comparePassword, generateToken, verifyToken } = require('../utils/auth');
 
 // Cabeceras CORS comunes
@@ -135,67 +135,35 @@ async function register(request) {
 // Login user
 async function login(request) {
   try {
-    const data = await request.json();
-    const { email, password } = data;
-
-    // Validate input
-    if (!email || !password) {
-      return new Response(JSON.stringify({
-        success: false,
-        message: 'Email and password are required'
-      }), {
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
-
+    const { email, password } = await request.json();
+    
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return new Response(JSON.stringify({
         success: false,
-        message: 'Invalid email or password'
-      }), {
-        status: 401,
-        headers: corsHeaders
-      });
+        message: 'Usuario no encontrado'
+      }), { status: 404, headers: corsHeaders });
     }
 
-    // Check password
-    const isValidPassword = comparePassword(password, user.password);
-    if (!isValidPassword) {
+    const validPassword = comparePassword(password, user.password);
+    if (!validPassword) {
       return new Response(JSON.stringify({
         success: false,
-        message: 'Invalid email or password'
-      }), {
-        status: 401,
-        headers: corsHeaders
-      });
+        message: 'Contraseña incorrecta'
+      }), { status: 401, headers: corsHeaders });
     }
 
-    // Generate token
     const token = generateToken(user);
-
-    // Store token in database
     await prisma.token.create({
       data: {
         token,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       }
-    });
-
-    // Get user's referral link
-    const referralLink = await prisma.referralLink.findFirst({
-      where: { userId: user.id }
     });
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Login successful',
       data: {
         user: {
           id: user.id,
@@ -203,23 +171,15 @@ async function login(request) {
           name: user.name,
           role: user.role
         },
-        token,
-        referralCode: referralLink ? referralLink.code : null
+        token
       }
-    }), {
-      status: 200,
-      headers: corsHeaders
-    });
+    }), { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error('Login error:', error);
     return new Response(JSON.stringify({
       success: false,
-      message: 'Failed to login',
+      message: 'Error en el inicio de sesión',
       error: error.message
-    }), {
-      status: 500,
-      headers: corsHeaders
-    });
+    }), { status: 500, headers: corsHeaders });
   }
 }
 

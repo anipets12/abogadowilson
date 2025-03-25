@@ -247,6 +247,7 @@ function AppContent() {
             </RequireAuth>
           } />
           <Route path="/gracias" element={<ThankYouPage />} />
+          <Route path="/ebooks/download/:id" element={<ProtectedDownload />} />
           
           {/* Ruta de fallback */}
           <Route path="*" element={

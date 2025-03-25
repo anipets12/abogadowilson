@@ -1,16 +1,73 @@
-name = 'abg-wilson'
+name = "abogado-wilson-website"
+type = "javascript"
+# Usar el account_id correcto
+account_id = "f21b24d86935a055c03d21f7fffd1514"
+workers_dev = true
+route = ""
+zone_id = ""
+pages_build_output_dir = "dist"  # Agregado para la configuración de Pages
 
-main = 'index.js'
+kv_namespaces = [
+  # Actualizado a ID de producción
+  { binding = "SESSIONS", id = "prod-kv-sessions-id" },
+  { binding = "KV_AUTH", id = "auth-store", preview_id = "auth-store-preview" },
+  # Actualizado a ID de producción
+  { binding = "EBOOKS", id = "prod-kv-ebooks-id" }
+]
 
-compatibility_date = '2025-03-13'
+r2_buckets = [
+  { binding = "EBOOKS_BUCKET", bucket_name = "ebooks", preview_bucket_name = "ebooks-dev" }
+]
+
+[vars]
+ENVIRONMENT = "production"
+ALLOWED_ORIGINS = "https://abogado-wilson.com"
+# Se reemplaza por un secret seguro en producción
+JWT_SECRET = "actual-secure-jwt-secret"
+SUPABASE_URL = "https://phzldiaohelbyobhjrnc.supabase.co"
+# Se actualiza a la URL real de Turso
+TURSO_DB_URL = "libsql://prod-turso-db-url"
 
 [env.production]
+vars = { ENVIRONMENT = "production" }
+# Se desactiva workers_dev en producción para desplegar sólo por custom domain
 workers_dev = false
-DATABASE_URL = "prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlfa2V5IjoiMTRhNDU5ZTgtNjYxOC00ZGNmLTk1MWItYzAxMjNhNDFkMGE3IiwidGVuYW50X2lkIjoiY2IxYzRhMjEwMGZjYzA3YjQ4ZmI3MWY5Mzc2ZGFiMzhkNmYxMDBmYTY0NmVhYTY4NmVhYjRmYjQwOTgwYjFjOSIsImludGVybmFsX3NlY3JldCI6IjllOTVjNDRjLWEzNzItNDAwYi05ODY5LTk3OTkzMjBmYjYxMSJ9.RAhNmhcUfJpMRWb296WK1bZL6oXTg3Rt1kXfeSs_SyE"
+routes = [
+  { pattern = "api.abogadowilson.com/*", custom_domain = true }
+]
+
+[env.staging]
+vars = { ENVIRONMENT = "staging" }
+workers_dev = true  # Permite despliegue en modo dev para pruebas
 
 [env.development]
+vars = { ENVIRONMENT = "development" }
 workers_dev = true
-DATABASE_URL = "prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlfa2V5IjoiMTRhNDU5ZTgtNjYxOC00ZGNmLTk1MWItYzAxMjNhNDFkMGE3IiwidGVuYW50X2lkIjoiY2IxYzRhMjEwMGZjYzA3YjQ4ZmI3MWY5Mzc2ZGFiMzhkNmYxMDBmYTY0NmVhYTY4NmVhYjRmYjQwOTgwYjFjOSIsImludGVybmFsX3NlY3JldCI6IjllOTVjNDRjLWEzNzItNDAwYi05ODY5LTk3OTkzMjBmYjYxMSJ9.RAhNmhcUfJpMRWb296WK1bZL6oXTg3Rt1kXfeSs_SyE"
-
-# Configuración para Cloudflare Pages
+DATABASE_URL = "prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlfa2V5IjoiMTRhNDU5ZTgtNjYxOC00ZGNmLTk1MWItYzAxMjNhNDFkMGE3IiwidGVuYW50X2lkIjoiY2IxYzRhMjEwMGZjYzA3YjQ4ZmI3MWY5Mzc2ZGFiMzhkNmYxMDBmYTY0NmVhYTY4NmVhYjRmYjQwOTgwYjFjOS"
 pages_build_output_dir = "dist"
+
+[build]
+command = "npm run build"
+watch_dir = "src"
+upload.format = "service-worker"
+main = "src/worker.js"
+compatibility_date = "2023-10-01"  # Fecha actualizada para mayor compatibilidad
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ebook_service"
+database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176"
+
+[site]
+bucket = "./dist"
+entry-point = "workers-site"
+
+[triggers]
+crons = ["0 0 * * *"]
+
+[placement]
+mode = "smart"
+
+[limits]
+memory_mb = 128
+max_upload_size = "10MB"

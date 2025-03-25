@@ -9,8 +9,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -19,6 +20,10 @@ model User {
   password      String
   name          String?
   role          String    @default("user")
+  isVerified    Boolean   @default(false)
+  verifyToken   String?   @unique
+  resetToken    String?   @unique
+  lastLogin     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   tokens        Token[]
@@ -27,6 +32,11 @@ model User {
   referredBy    String?
   forumPosts    ForumPost[]
   forumComments ForumComment[]
+
+  @@index([email])
+  @@index([referredBy])
+  @@index([verifyToken])
+  @@index([resetToken])
 }
 
 model Token {
@@ -36,6 +46,9 @@ model Token {
   user      User     @relation(fields: [userId], references: [id])
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
 }
 
 model UserToken {
@@ -56,6 +69,9 @@ model ReferralLink {
   usedCount Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([code])
 }
 
 model ForumPost {
@@ -67,6 +83,8 @@ model ForumPost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   comments  ForumComment[]
+
+  @@index([userId])
 }
 
 model ForumComment {
@@ -78,4 +96,52 @@ model ForumComment {
   post      ForumPost @relation(fields: [postId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([postId])
+}
+
+model Ebook {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  fileUrl     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchases   EbookPurchase[]
+  downloads   EbookDownload[]
+  analytics   EbookAnalytics[]
+}
+
+model EbookPurchase {
+  id           String   @id @default(cuid())
+  ebookId      String
+  userId       String
+  purchasedAt  DateTime @default(now())
+  tokenUsed    Int
+  paymentStatus String
+
+  ebook       Ebook    @relation(fields: [ebookId], references: [id])
+}
+
+model EbookDownload {
+  id          String   @id @default(cuid())
+  ebookId     String
+  userId      String
+  downloadedAt DateTime @default(now())
+
+  ebook       Ebook    @relation(fields: [ebookId], references: [id])
+}
+
+model EbookAnalytics {
+  id          String   @id @default(cuid())
+  ebookId     String
+  userId      String
+  action      String
+  metadata    Json
+  createdAt   DateTime @default(now())
+
+  ebook       Ebook    @relation(fields: [ebookId], references: [id])
 }

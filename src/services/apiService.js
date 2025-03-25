@@ -24,11 +24,68 @@ const api = axios.create({
 
 // Función para manejar errores de red de manera uniforme
 const handleNetworkError = (error) => {
-  const errorMessage = error.response?.data?.message || error.message || 'Error de red';
+  // Verificar conexión a internet
+  if (!navigator.onLine) {
+    return {
+      error: {
+        message: 'No hay conexión a internet. Por favor, verifique su conexión.',
+        code: 'NETWORK_ERROR',
+        severity: 'error'
+      }
+    };
+  }
+
+  // Manejar errores de autenticación
+  if (error.response?.status === 401) {
+    const currentPath = window.location.pathname;
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    
+    // Guardar la ruta actual para redireccionar después del login
+    if (currentPath !== '/login') {
+      localStorage.setItem('redirectAfterLogin', currentPath);
+    }
+    
+    window.location.href = '/login?session=expired';
+    return {
+      error: {
+        message: 'Su sesión ha expirado. Por favor, inicie sesión nuevamente.',
+        code: 'SESSION_EXPIRED',
+        severity: 'warning'
+      }
+    };
+  }
+
+  // Manejar errores de permisos
+  if (error.response?.status === 403) {
+    return {
+      error: {
+        message: 'No tiene permisos para realizar esta acción.',
+        code: 'FORBIDDEN',
+        severity: 'error'
+      }
+    };
+  }
+
+  // Manejar errores de validación
+  if (error.response?.status === 422) {
+    return {
+      error: {
+        message: 'Datos inválidos. Por favor, verifique la información.',
+        code: 'VALIDATION_ERROR',
+        details: error.response.data.errors,
+        severity: 'warning'
+      }
+    };
+  }
+
+  // Error general del servidor
   return {
     error: {
-      message: errorMessage,
-      status: error.response?.status || 500
+      message: error.response?.data?.message || 'Error del servidor. Por favor, intente nuevamente.',
+      code: error.response?.status || 'SERVER_ERROR',
+      severity: 'error',
+      details: error.response?.data?.details || null
     }
   };
 };

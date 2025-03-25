@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { FaBook, FaDownload, FaShoppingCart, FaCheck } from 'react-icons/fa';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { FaBook, FaDownload, FaShoppingCart, FaCheck, FaFilePdf } from 'react-icons/fa';
+import { ebookService } from '../services/ebookService';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'react-toastify';
 
 const ebooksData = [
+  {
+    id: 0,
+    title: "Introducción al Derecho: Conceptos Básicos para Todos",
+    description: "Guía gratuita que explica los fundamentos del derecho, sistema judicial y procesos legales básicos en Ecuador. ¡Perfecto para comenzar a entender el mundo legal!",
+    price: 0,
+    coverImage: "https://images.unsplash.com/photo-1505664194779-8beaceb93744",
+    pages: 25,
+    popular: true,
+    category: "Básico",
+    isFree: true,
+    pdfUrl: "/ebooks/introduccion-al-derecho.pdf"
+  },
   {
     id: 1,
     title: "Guía Completa de Derecho Civil para No Abogados",
@@ -67,11 +82,36 @@ const ebooksData = [
 ];
 
 export default function Ebooks() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [cartItems, setCartItems] = useState([]);
+  const { user } = useAuth();
+  const [downloading, setDownloading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [purchasedEbooks, setPurchasedEbooks] = useState([]);
 
   const categories = ['Todos', 'Civil', 'Penal', 'Comercial', 'Tránsito', 'Aduanas'];
+
+  useEffect(() => {
+    const loadPurchasedEbooks = async () => {
+      if (user) {
+        try {
+          const { data } = await supabase
+            .from('ebook_purchases')
+            .select('ebook_id')
+            .eq('user_id', user.id);
+          setPurchasedEbooks(data?.map(p => p.ebook_id) || []);
+        } catch (error) {
+          console.error('Error loading purchases:', error);
+        }
+      }
+      setIsLoading(false);
+    };
+    
+    loadPurchasedEbooks();
+  }, [user]);
 
   // Filtrar los e-books por categoría y término de búsqueda
   const filteredEbooks = ebooksData
@@ -94,9 +134,114 @@ export default function Ebooks() {
   // Calcular total del carrito
   const cartTotal = cartItems.reduce((total, item) => total + item.price, 0).toFixed(2);
 
+  const handleCheckout = async () => {
+    if (!user) {
+      toast.error('Por favor inicie sesión para continuar');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+
+    try {
+      const { data: { sessionId }, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { cartItems }
+      });
+
+      if (error) throw error;
+      window.location.href = sessionId;
+    } catch (error) {
+      toast.error('Error al procesar el pago');
+      console.error('Checkout error:', error);
+    }
+  };
+
+  const handleDownload = async (ebook) => {
+    try {
+      setDownloading(true);
+      
+      if (!ebook.isFree && !user) {
+        toast.error('Debe iniciar sesión para descargar este ebook');
+        navigate('/login', { state: { from: location } });
+        return;
+      }
+
+      if (!ebook.isFree && !purchasedEbooks.includes(ebook.id)) {
+        toast.error('Debe comprar este ebook primero');
+        return;
+      }
+
+      await ebookService.trackDownload(ebook.id);
+      const downloadUrl = await ebookService.getDownloadUrl(ebook.id);
+      
+      // Crear un link temporal y simular click
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', `${ebook.title}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('¡Descarga iniciada!');
+    } catch (error) {
+      console.error('Error al descargar:', error);
+      toast.error('Error al iniciar la descarga');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center min-h-screen">
+      <div className="loader"></div>
+    </div>;
+  }
+
   return (
     <div className="py-12 bg-secondary-50">
       <div className="container-custom">
+        {/* Featured Free Ebook */}
+        <div className="mb-16">
+          <motion.div
+            className="card p-6 border-2 border-primary-500"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div className="relative">
+                <img
+                  src={ebooksData[0].coverImage}
+                  alt={ebooksData[0].title}
+                  className="w-full h-64 object-cover rounded-lg shadow-lg"
+                />
+                <div className="absolute top-4 right-4 bg-primary-600 text-white px-4 py-2 rounded-full font-bold">
+                  GRATIS
+                </div>
+              </div>
+              <div>
+                <span className="text-primary-600 font-semibold mb-2 block">E-book Gratuito</span>
+                <h2 className="text-2xl font-bold text-secondary-900 mb-4">{ebooksData[0].title}</h2>
+                <p className="text-secondary-600 mb-6">{ebooksData[0].description}</p>
+                <div className="flex items-center gap-4 mb-4">
+                  <span className="flex items-center text-secondary-600">
+                    <FaFilePdf className="mr-2" /> {ebooksData[0].pages} páginas
+                  </span>
+                  <span className="flex items-center text-secondary-600">
+                    <FaDownload className="mr-2" /> PDF descargable
+                  </span>
+                </div>
+                <motion.button
+                  onClick={() => handleDownload(ebooksData[0])}
+                  className="btn-primary w-full md:w-auto flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FaDownload /> Descargar Ahora
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
         <div className="text-center mb-12">
           <h2 className="section-title">Biblioteca Legal Digital</h2>
           <p className="text-xl text-secondary-600">
@@ -174,15 +319,14 @@ export default function Ebooks() {
               
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-secondary-100">
                 <span className="text-lg font-bold">Total: ${cartTotal}</span>
-                <Link to="/checkout">
-                  <motion.button 
-                    className="btn-primary"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    Proceder al pago
-                  </motion.button>
-                </Link>
+                <motion.button 
+                  onClick={handleCheckout}
+                  className="btn-primary"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Proceder al pago
+                </motion.button>
               </div>
             </div>
           </motion.div>
@@ -199,7 +343,7 @@ export default function Ebooks() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredEbooks.map(ebook => (
+            {filteredEbooks.filter(ebook => !ebook.isFree).map(ebook => (
               <motion.div
                 key={ebook.id}
                 className="card overflow-hidden"
