@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Formulario - Abogado Wilson</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .btn-primary {
+            background-color: #1a365d;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #2c5282;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-input:focus {
+            border-color: #2c5282;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+        }
+        /* Efecto 3D para el logo */
+        .logo-3d {
+            filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5));
+            transition: all 0.3s ease;
+        }
+        .logo-3d:hover {
+            transform: perspective(1000px) rotateY(10deg);
+            filter: drop-shadow(4px 4px 5px rgba(0, 0, 0, 0.6));
+        }
+        /* Efecto de seguimiento de cursor */
+        .cursor-follower {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: rgba(26, 54, 93, 0.2);
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease, width 0.3s ease, height 0.3s ease;
+        }
+        body {
+            cursor: none;
+        }
+        a, button, input, textarea {
+            cursor: none;
+        }
+        a:hover ~ .cursor-follower, 
+        button:hover ~ .cursor-follower {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(26, 54, 93, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+    <!-- Cursor personalizado -->
+    <div class="cursor-follower"></div>
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8 text-center">
+            <div class="inline-block logo-3d">
+                <h1 class="text-4xl font-bold text-blue-900">Abg. Wilson Ipiales</h1>
+                <p class="text-xl text-blue-700">Servicios Legales Profesionales</p>
+            </div>
+        </header>
+
+        <main class="bg-white rounded-lg shadow-xl p-8 max-w-2xl mx-auto transform hover:scale-[1.01] transition-transform duration-300">
+            <h2 class="text-2xl font-semibold text-blue-900 mb-6 border-b pb-2">Formulario de Contacto</h2>
+            
+            <form id="contactForm" class="space-y-6">
+                <div>
+                    <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                    <input type="text" id="nombre" name="nombre" required
+                        class="form-input w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none">
+                </div>
+                
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico *</label>
+                    <input type="email" id="email" name="email" required
+                        class="form-input w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none">
+                </div>
+                
+                <div>
+                    <label for="telefono" class="block text-sm font-medium text-gray-700 mb-1">Teléfono *</label>
+                    <input type="tel" id="telefono" name="telefono" required
+                        class="form-input w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none">
+                </div>
+                
+                <div>
+                    <label for="asunto" class="block text-sm font-medium text-gray-700 mb-1">Asunto</label>
+                    <input type="text" id="asunto" name="asunto"
+                        class="form-input w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none">
+                </div>
+                
+                <div>
+                    <label for="mensaje" class="block text-sm font-medium text-gray-700 mb-1">Mensaje</label>
+                    <textarea id="mensaje" name="mensaje" rows="4"
+                        class="form-input w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none"></textarea>
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" id="terminos" name="terminos" required class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="terminos" class="ml-2 block text-sm text-gray-700">
+                        Acepto los términos y condiciones *
+                    </label>
+                </div>
+                
+                <div class="pt-4">
+                    <button type="submit" 
+                        class="btn-primary w-full text-white font-bold py-3 px-4 rounded-md focus:outline-none focus:shadow-outline">
+                        Enviar Consulta
+                    </button>
+                </div>
+                
+                <p class="text-sm text-gray-500 mt-2">* Campos obligatorios</p>
+            </form>
+            
+            <div id="respuesta" class="mt-6 hidden p-4 rounded-md"></div>
+        </main>
+
+        <footer class="mt-12 text-center text-sm text-gray-600">
+            <p>© 2025 Abg. Wilson Alexander Ipiales Guerron. Todos los derechos reservados.</p>
+            <p class="mt-1">Juan José Flores 4-73 y Vicente Rocafuerte, Ibarra, Ecuador</p>
+        </footer>
+    </div>
+
+    <script>
+        // Efecto de seguimiento del cursor
+        const cursor = document.querySelector('.cursor-follower');
+        
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
+        
+        document.addEventListener('mousedown', () => {
+            cursor.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        });
+        
+        document.addEventListener('mouseup', () => {
+            cursor.style.transform = 'translate(-50%, -50%) scale(1)';
+        });
+
+        // Formulario de contacto
+        document.getElementById('contactForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const respuestaDiv = document.getElementById('respuesta');
+            respuestaDiv.className = 'mt-6 p-4 rounded-md';
+            respuestaDiv.style.display = 'block';
+            
+            const formData = {
+                nombre: document.getElementById('nombre').value,
+                email: document.getElementById('email').value,
+                telefono: document.getElementById('telefono').value,
+                asunto: document.getElementById('asunto').value,
+                mensaje: document.getElementById('mensaje').value
+            };
+            
+            try {
+                respuestaDiv.className = 'mt-6 p-4 rounded-md bg-blue-100 text-blue-700';
+                respuestaDiv.textContent = 'Enviando su consulta...';
+                
+                const response = await fetch('/api/contacto', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    respuestaDiv.className = 'mt-6 p-4 rounded-md bg-green-100 text-green-700';
+                    respuestaDiv.textContent = '¡Gracias por su mensaje! Le contactaremos a la brevedad posible.';
+                    document.getElementById('contactForm').reset();
+                } else {
+                    respuestaDiv.className = 'mt-6 p-4 rounded-md bg-red-100 text-red-700';
+                    respuestaDiv.textContent = data.error || 'Ha ocurrido un error al enviar su mensaje. Por favor, inténtelo nuevamente.';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                respuestaDiv.className = 'mt-6 p-4 rounded-md bg-red-100 text-red-700';
+                respuestaDiv.textContent = 'Error de conexión. Por favor, verifique su conexión a internet e inténtelo nuevamente.';
+            }
+        });
+    </script>
+</body>
+</html>

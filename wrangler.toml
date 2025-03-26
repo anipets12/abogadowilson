@@ -1,8 +1,7 @@
-type = "javascript"
 name = "abogado-wilson-website"
 main = "src/worker.ts"
 compatibility_date = "2024-02-14"
-account_id = "your_account_id"
+account_id = "f21b24d86935a055c03d21f7fffd1514"
 workers_dev = true
 
 [dev]
@@ -15,45 +14,25 @@ watch_dir = "src"
 
 [site]
 bucket = "./dist"
-entry-point = "src/worker.ts"
 
 [limits]
 memory_mb = 128
 max_upload_size = "10MB"
 cpu_ms = 1000
 
-[env.production]
-routes = [
-  { pattern = "api.abogadowilson.com/*", custom_domain = true }
-]
-[env.production.vars]
+[vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://example.com"
-JWT_SECRET = "supersecret"
-SUPABASE_URL = "https://supabase.example.com"
-TURSO_DB_URL = "https://turso.example.com"
-kv_namespaces = [
-  { binding = "ASSETS", id = "your-kv-namespace-id" }
-]
-r2_buckets = [
-  { binding = "EBOOKS_BUCKET", bucket_name = "ebooks", preview_bucket_name = "ebooks-dev" }
-]
+CORS_ORIGIN = "*"
+
+[kv_namespaces]
+[[kv_namespaces.bindings]]
+binding = "ASSETS"
+id = "d977cf29acc749ba8aeabbcb2d395cb3"
+
+[d1_databases]
+[[d1_databases.bindings]]
+binding = "DB"
+database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176"
 
 [triggers]
 crons = ["0 0 * * *"] # Daily maintenance
-
-[placement]
-mode = "smart"
-
-[vars]
-CORS_ORIGIN = "*"
-ENVIRONMENT = "production"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "abogado-wilson-db"
-database_id = "your-d1-database-id"
-
-[miniflare]
-kv_persist = true
-cache_persist = true
