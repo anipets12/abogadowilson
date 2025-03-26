@@ -10,6 +10,15 @@ interface Env {
 const prisma = new PrismaClient();
 let supabase: ReturnType<typeof createClient>;
 
+// Add authentication check middleware
+const checkAuth = async (request: Request) => {
+  const token = request.headers.get('Authorization')?.split(' ')[1];
+  if (!token) return null;
+  
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  return error ? null : user;
+};
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Initialize Supabase with environment variables
@@ -32,6 +41,53 @@ export default {
     }
 
     try {
+      // Add authentication endpoints
+      if (pathname.startsWith('/api/auth')) {
+        if (pathname === '/api/auth/check') {
+          const user = await checkAuth(request);
+          return new Response(
+            JSON.stringify({ isAuthenticated: !!user, user }), 
+            { headers, status: 200 }
+          );
+        }
+      }
+
+      // Protect dashboard routes
+      if (pathname.startsWith('/api/dashboard')) {
+        const user = await checkAuth(request);
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized' }), 
+            { headers, status: 401 }
+          );
+        }
+      }
+
+      // Add quick consultation endpoint
+      if (pathname === '/api/quick-consultation') {
+        if (request.method === 'POST') {
+          const data = await request.json();
+          const consultation = await prisma.consultation.create({
+            data: {
+              ...data,
+              status: 'pending'
+            }
+          });
+          return new Response(JSON.stringify(consultation), { headers, status: 201 });
+        }
+      }
+
+      // Add payment verification endpoint
+      if (pathname.startsWith('/api/payments/verify')) {
+        // Add PayPal verification logic
+        if (request.method === 'POST') {
+          const { paymentId } = await request.json();
+          // Verify with PayPal API
+          // Add your PayPal verification logic here
+          return new Response(JSON.stringify({ verified: true }), { headers, status: 200 });
+        }
+      }
+
       if (pathname.startsWith('/api/items')) {
         if (request.method === 'GET') {
           // Obtener todos los items

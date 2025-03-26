@@ -145,3 +145,20 @@ model EbookAnalytics {
 
   ebook       Ebook    @relation(fields: [ebookId], references: [id])
 }
+
+model Consultation {
+  id          String   @id @default(uuid())
+  clientName  String
+  email       String
+  message     String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  amount      Float
+  status      String
+  paymentId   String?  // For PayPal reference
+  createdAt   DateTime @default(now())
+}
