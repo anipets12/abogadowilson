@@ -125,6 +125,7 @@ async function handleApiRequest(request: Request, env: Env): Promise<Response> {
     // API routes handling
     if (path.startsWith('/auth')) {
       // Auth endpoints
+      return handleAuthRoutes(request, services, path)
       return await handleAuthRoutes(request, services)
     } else if (path.startsWith('/documents')) {
       // Document endpoints
@@ -234,7 +235,7 @@ async function handleTurnstileVerification(request: Request, secretKey: string):
 }
 
 export default {
-  async fetch(request: WorkerRequest, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const securityHeaders = {
       'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
       'X-Content-Type-Options': 'nosniff',
@@ -258,7 +259,7 @@ export default {
       
       // Handle API requests
       if (url.pathname.startsWith('/api')) {
-        return handleApiRequest(request, env)
+        return handleApiRequest(request, env as Env)
       }
 
       // Serve static assets

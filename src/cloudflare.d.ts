@@ -24,9 +24,30 @@ interface Env {
   SUPABASE_KEY: string;
   JWT_SECRET: string;
   TURSO_DATABASE_URL: string;
+  TURSO_AUTH_TOKEN: string;
   CORS_ORIGIN: string;
   NOTION_API_KEY: string;
   NOTION_DATABASE_ID: string;
+  
+  // Configuraciones de seguridad
+  TURNSTILE_SECRET_KEY: string;
+  CLOUDFLARE_ENV: string;
+  ENABLE_DIAGNOSTICS: string;
+  
+  // APIs externas
+  WHATSAPP_API_KEY: string;
+  WHATSAPP_API_URL: string;
+  WHATSAPP_AUTH_TOKEN: string;
+  N8N_WEBHOOK_URL: string;
+  AUTOMATION_API_KEY: string;
+  
+  // APIs de pago
+  PAYPAL_CLIENT_ID: string;
+  PAYPAL_CLIENT_SECRET: string;
+  
+  // APIs de IA
+  OPENAI_API_KEY: string;
+  MISTRAL_API_KEY: string;
 }
 
 // Definición para D1 Database

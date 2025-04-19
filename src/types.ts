@@ -1,5 +1,69 @@
 /// <reference path="./cloudflare.d.ts" />
 
+// Tipos requeridos para Auth Context
+export interface AuthContextType {
+  user: UserData | null;
+  loading: boolean;
+  login: (data: LoginData) => Promise<any>;
+  register: (data: any) => Promise<any>;
+  logout: () => Promise<any>;
+  isAuthenticated: boolean;
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface UserData {
+  id: string;
+  email: string;
+  nombre?: string;
+  roles?: string[];
+  token?: string;
+}
+
+// Tipos para API respuestas
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  status?: number;
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  error: string;
+  status: number;
+}
+
+// Tipos para Health Check
+export interface HealthCheck {
+  database: boolean;
+  supabase: boolean;
+  paypal: boolean;
+  status: 'ok' | 'error';
+  timestamp: string;
+}
+
+// Interfaces para consultas
+export interface ConsultaData {
+  nombre: string;
+  email: string;
+  telefono: string;
+  asunto: string;
+  mensaje: string;
+}
+
+// Tipo SEO Props
+export interface SEOProps {
+  title: string;
+  description: string;
+  keywords: string;
+  ogImage?: string;
+  ogUrl?: string;
+}
+
 // Interfaces para los clientes simulados
 export interface SupabaseClient {
   auth: {
