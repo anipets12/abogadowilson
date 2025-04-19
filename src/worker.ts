@@ -125,8 +125,7 @@ async function handleApiRequest(request: Request, env: Env): Promise<Response> {
     // API routes handling
     if (path.startsWith('/auth')) {
       // Auth endpoints
-      return handleAuthRoutes(request, services, path)
-      return await handleAuthRoutes(request, services)
+      return handleAuthRoutes(request, services)
     } else if (path.startsWith('/documents')) {
       // Document endpoints
       return await handleDocumentRoutes(request, services)

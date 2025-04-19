@@ -48,6 +48,16 @@ interface Env {
   // APIs de IA
   OPENAI_API_KEY: string;
   MISTRAL_API_KEY: string;
+  
+  // Variables faltantes detectadas en los errores
+  API_KEY: string;
+  WHATSAPP_TOKEN: string;
+  FACEBOOK_APP_ID: string;
+  FACEBOOK_APP_SECRET: string;
+  DATABASE_URL: string;
+  NOTION_KEY: string;
+  WHATSAPP_VERIFY_TOKEN: string;
+  NODE_ENV: string;
 }
 
 // Definición para D1 Database
