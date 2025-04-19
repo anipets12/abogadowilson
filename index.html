@@ -5,6 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Abg. Wilson Alexander Ipiales Guerron - Asesoría Legal Profesional</title>
   <meta name="description" content="Asesoría legal profesional en derecho penal, civil, tránsito, comercial y aduanas. Protegiendo sus derechos con experiencia y dedicación en Ibarra, Ecuador.">
+  
+  <!-- Sistema de diagnóstico y recuperación -->  
+  <script>
+    // Solución inmediata para favicon - evita errores 404
+    const faviconBase64 = 'AAABAAEAEBAQAAEABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAgAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAA/4QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEREQAAAAAAEAAAEAAAAAEAAAABAAAAEAAAAAAQAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAERAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.type = 'image/x-icon';
+    link.href = 'data:image/x-icon;base64,' + faviconBase64;
+    document.head.appendChild(link);
+    
+    // Interceptar y corregir solicitudes de favicon
+    const originalFetch = window.fetch;
+    window.fetch = function(resource, init) {
+      if (typeof resource === 'string' && resource.includes('favicon')) {
+        console.log('[DiagnosticSystem] Interceptando solicitud de favicon');
+        return Promise.resolve(new Response(new Blob(), {status: 200}));
+      }
+      return originalFetch.apply(this, arguments);
+    };
+    
+    // Detector de error 1042
+    window.addEventListener('error', function(e) {
+      if (e.message && (e.message.includes('1042') || e.message.includes('network'))) {
+        console.warn('[DiagnosticSystem] Error 1042 detectado, iniciando recuperación...');
+        if (!window.location.href.includes('recovered=true')) {
+          window.location.href = '/?recovered=true&from=1042&t=' + Date.now();
+        }
+      }
+    });
+  </script>
+  
+  <!-- Sistema avanzado de diagnóstico -->
+  <script type="module">
+    import { initDiagnosticSystem } from '/src/diagnostic/diagnostic.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      initDiagnosticSystem();
+    });
+  </script>
   <meta name="keywords" content="abogado, derecho penal, derecho civil, derecho de tránsito, derecho comercial, aduanas, asesoría legal, Ibarra, Ecuador">
   <meta name="author" content="Abg. Wilson Alexander Ipiales Guerron">
   
@@ -30,6 +70,106 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body>
+  <!-- Recuperación en progreso para error 1042 -->
+  <div id="recovery-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; text-align: center; padding-top: 20vh;">
+    <h1 style="color: #3457dc;">Recuperando conexión</h1>
+    <p>Estamos restableciendo la conexión con nuestros servidores. Por favor, espera un momento...</p>
+    <div style="width: 80%; max-width: 300px; height: 10px; background: #f0f0f0; margin: 30px auto; border-radius: 5px; overflow: hidden;">
+      <div id="progress-bar" style="width: 0%; height: 100%; background: #3457dc; transition: width 0.5s;"></div>
+    </div>
+    <p id="recovery-message">Iniciando proceso de recuperación...</p>
+  </div>
+  
+  <script>
+    // Solución definitiva - Evitar ciclos infinitos y manejar correctamente la recuperación
+    (function() {
+      // Si estamos en la página de recuperación
+      if (window.location.search.includes('recovered=true')) {
+        // Verificar si estamos en un ciclo de recuperación
+        const recoveryAttempts = parseInt(localStorage.getItem('recoveryAttempts') || '0');
+        
+        if (recoveryAttempts > 3) {
+          // Demasiados intentos de recuperación - limpiar todo y forzar refresco limpio
+          console.log('Demasiados intentos de recuperación, realizando limpieza completa...');
+          localStorage.clear();
+          sessionStorage.clear();
+          // Limpiar todas las cookies
+          document.cookie.split(';').forEach(cookie => {
+            const name = cookie.split('=')[0].trim();
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          });
+          
+          // Redireccionar sin parámetros
+          window.location.replace('/');
+          return;
+        }
+        
+        // Registrar intento de recuperación
+        localStorage.setItem('recoveryAttempts', (recoveryAttempts + 1).toString());
+        
+        // Mostrar pantalla de recuperación
+        document.getElementById('recovery-screen').style.display = 'block';
+        
+        // Simular progreso
+        let progress = 0;
+        const interval = setInterval(() => {
+          progress += 5;
+          document.getElementById('progress-bar').style.width = progress + '%';
+          
+          if (progress === 30) {
+            document.getElementById('recovery-message').textContent = 'Limpiando caché y tokens corruptos...';
+          } else if (progress === 50) {
+            document.getElementById('recovery-message').textContent = 'Eliminando datos de navegación...';
+            // Limpiar localStorage y sessionStorage
+            try {
+              localStorage.removeItem('supabase.auth.token');
+              localStorage.removeItem('authSession');
+              localStorage.removeItem('authUser');
+              sessionStorage.clear();
+            } catch (e) {}
+          } else if (progress === 75) {
+            document.getElementById('recovery-message').textContent = 'Restaurando conexión segura...';
+          } else if (progress === 90) {
+            document.getElementById('recovery-message').textContent = 'Completado. Redirigiendo...';
+          } else if (progress >= 100) {
+            clearInterval(interval);
+            // Redireccionar a la página principal sin parámetros usando replace
+            // para evitar que quede en el historial
+            localStorage.setItem('recoverySuccessful', 'true');
+            localStorage.setItem('recoveryAttempts', '0'); // Resetear contador
+            window.location.replace('/');
+          }
+        }, 80); // Más rápido para evitar tiempos de espera largos
+      } else if (localStorage.getItem('recoverySuccessful') === 'true') {
+        // Acabamos de completar una recuperación exitosa
+        localStorage.removeItem('recoverySuccessful');
+        // Mostrar mensaje temporal de éxito
+        setTimeout(() => {
+          const successMsg = document.createElement('div');
+          successMsg.style.position = 'fixed';
+          successMsg.style.top = '20px';
+          successMsg.style.left = '50%';
+          successMsg.style.transform = 'translateX(-50%)';
+          successMsg.style.backgroundColor = '#4caf50';
+          successMsg.style.color = 'white';
+          successMsg.style.padding = '10px 20px';
+          successMsg.style.borderRadius = '4px';
+          successMsg.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+          successMsg.style.zIndex = '9999';
+          successMsg.style.transition = 'opacity 0.5s';
+          successMsg.textContent = 'Recuperación completada con éxito';
+          document.body.appendChild(successMsg);
+          
+          // Ocultar después de 3 segundos
+          setTimeout(() => {
+            successMsg.style.opacity = '0';
+            setTimeout(() => successMsg.remove(), 500);
+          }, 3000);
+        }, 1000);
+      }
+    })();
+  </script>
+  
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

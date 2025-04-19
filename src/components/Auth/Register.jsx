@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { authService } from '../../services/apiService';
+import TurnstileWidget from '../TurnstileWidget';
 
 const Register = () => {
   const { user, register } = useAuth();
@@ -14,12 +15,16 @@ const Register = () => {
   const queryParams = new URLSearchParams(location.search);
   const referralCode = queryParams.get('ref');
   
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileVerified, setTurnstileVerified] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    referralCode: referralCode || ''
+    referralCode: referralCode || '',
+    phone: '',
+    acceptTerms: false,
   });
   
   const [showPassword, setShowPassword] = useState(false);
@@ -64,6 +69,26 @@ const Register = () => {
   
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validar contraseñas
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+    
+    // Validar aceptación de términos
+    if (!formData.acceptTerms) {
+      toast.error('Debes aceptar los términos y condiciones');
+      return;
+    }
+    
+    // Validar que se ha completado el captcha de Turnstile
+    if (!turnstileVerified) {
+      toast.error('Por favor, completa la verificación de seguridad');
+      return;
+    }
+    
+    setIsSubmitting(true);
     setLoading(true);
     setError(null);
     
@@ -83,10 +108,6 @@ const Register = () => {
       
       if (formData.password.length < 6) {
         throw new Error('La contraseña debe tener al menos 6 caracteres');
-      }
-      
-      if (formData.password !== formData.confirmPassword) {
-        throw new Error('Las contraseñas no coinciden');
       }
       
       console.log('Intentando registrar usuario:', formData.email);
@@ -156,6 +177,7 @@ const Register = () => {
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
+      setIsSubmitting(false);
       setLoading(false);
     }
   };
@@ -317,27 +339,68 @@ const Register = () => {
                 onChange={handleChange}
               />
             </div>
+            
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaUser className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                id="phone"
+                name="phone"
+                type="text"
+                className="appearance-none rounded-md relative block w-full pl-10 pr-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="Teléfono (opcional)"
+                value={formData.phone}
+                onChange={handleChange}
+              />
+            </div>
+            
+            <div className="relative">
+              <div className="flex items-center">
+                <input
+                  id="acceptTerms"
+                  name="acceptTerms"
+                  type="checkbox"
+                  className="mr-2"
+                  checked={formData.acceptTerms}
+                  onChange={handleChange}
+                />
+                <label htmlFor="acceptTerms" className="text-sm text-gray-600">
+                  Acepto los{' '}
+                  <Link to="/terminos-condiciones" className="font-medium text-blue-600 hover:text-blue-500">
+                    Términos y Condiciones
+                  </Link>{' '}
+                  y{' '}
+                  <Link to="/politica-privacidad" className="font-medium text-blue-600 hover:text-blue-500">
+                    Política de Privacidad
+                  </Link>
+                  .
+                </label>
+              </div>
+            </div>
           </div>
           
-          <div>
+          {/* Integración de Turnstile para protección anti-bot */}
+          <div className="mt-4 flex flex-col items-center">
+            <TurnstileWidget 
+              onVerify={() => setTurnstileVerified(true)}
+              onExpire={() => setTurnstileVerified(false)}
+              onError={(msg) => {
+                toast.error(`Error en verificación: ${msg}`);
+                setTurnstileVerified(false);
+              }}
+              action="register"
+              theme="light"
+            />
+          </div>
+          
+          <div className="flex items-center justify-between mt-4">
             <button
               type="submit"
-              disabled={loading}
-              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out`}
+              disabled={isSubmitting || !turnstileVerified}
+              className="w-full px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition duration-300 ease-in-out"
             >
-              {loading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Procesando...
-                </>
-              ) : (
-                'Registrarse'
-              )}
+              {isSubmitting ? 'Registrando...' : 'Registrarse'}
             </button>
           </div>
         </form>

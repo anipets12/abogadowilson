@@ -1,30 +1,93 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import axios from 'axios';
 
+// Componentes de estructura base
 import Navbar from './components/Navigation/Navbar';
-import Hero from './components/Hero';
-import Services from './components/Services';
-import Blog from './components/Blog';
 import Footer from './components/Footer/Footer';
-import ProcessSearch from './components/ProcessSearch';
-import Chat from './components/Chat';
-import Testimonials from './components/Testimonials';
-import Forum from './components/Forum';
-import TopicDetail from './components/Forum/TopicDetail';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import JudicialNews from './components/JudicialNews';
-import Afiliados from './components/Afiliados';
-import Referidos from './components/Referidos';
-import Registration from './components/Registration';
-import ContactPage from './components/Contact/ContactPage';
-import DashboardPage from './components/Dashboard/DashboardPage';
-import ClientDashboard from './components/Dashboard/ClientDashboard';
-import AppointmentCalendar from './components/Appointment/AppointmentCalendar';
 import CookieConsent from './components/Common/CookieConsent';
-import Newsletter from './components/Newsletter/Newsletter';
-import ConsultationHub from './components/Consultation/ConsultationHub';
+import LoadingSpinner from './components/Common/LoadingSpinner';
+
+// Páginas principales
+const HomePage = lazy(() => import('./components/Home/HomePage'));
+const AboutPage = lazy(() => import('./components/About/AboutPage'));
+const ServicesPage = lazy(() => import('./components/Services/ServicesPage'));
+const ContactPage = lazy(() => import('./components/Contact/ContactPage'));
+
+// Componentes de autenticación
+const Login = lazy(() => import('./components/Auth/Login'));
+const Register = lazy(() => import('./components/Auth/Register'));
+const ForgotPassword = lazy(() => import('./components/Auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./components/Auth/ResetPassword'));
+
+// Dashboard y componentes del área del usuario
+const DashboardLayout = lazy(() => import('./components/Dashboard/DashboardLayout'));
+const DashboardHome = lazy(() => import('./components/Dashboard/DashboardHome'));
+const UserProfile = lazy(() => import('./components/Dashboard/UserProfile'));
+const UserConsultations = lazy(() => import('./components/Dashboard/UserConsultations'));
+const UserAppointments = lazy(() => import('./components/Dashboard/UserAppointments'));
+const UserEbooks = lazy(() => import('./components/Dashboard/UserEbooks'));
+const UserTokens = lazy(() => import('./components/Tokens/TokensManager'));
+
+// Administración
+const AdminPanel = lazy(() => import('./components/Admin/AdminPanel'));
+const AdminUsers = lazy(() => import('./components/Admin/AdminUsers'));
+const AdminContent = lazy(() => import('./components/Admin/AdminContent'));
+const AdminAnalytics = lazy(() => import('./components/Admin/AdminAnalytics'));
+
+// Herramientas y servicios
+const ProcessSearch = lazy(() => import('./components/ProcessSearch'));
+const AppointmentScheduler = lazy(() => import('./components/Appointment/AppointmentScheduler'));
+
+// Consultas y servicios legales
+const ConsultationHub = lazy(() => import('./components/Consultation/ConsultationHub'));
+const QuickConsultationForm = lazy(() => import('./components/Consultation/QuickConsultationForm'));
+const ConsultasPenales = lazy(() => import('./components/ConsultasPenales'));
+const ConsultasTransito = lazy(() => import('./components/ConsultasTransito'));
+const ConsultasCiviles = lazy(() => import('./components/ConsultasCiviles'));
+
+// Blog y contenido
+const BlogList = lazy(() => import('./components/Blog/BlogList'));
+const BlogArticle = lazy(() => import('./components/Blog/BlogArticle'));
+const EbookStore = lazy(() => import('./components/Ebooks/EbookStore'));
+const NewsletterSignup = lazy(() => import('./components/Newsletter/NewsletterSignup'));
+const JudicialNews = lazy(() => import('./components/JudicialNews'));
+
+// Foro
+const ForumHome = lazy(() => import('./components/Forum/ForumHome'));
+const ForumTopic = lazy(() => import('./components/Forum/ForumTopic'));
+const ForumNewTopic = lazy(() => import('./components/Forum/ForumNewTopic'));
+
+// Afiliados y referidos
+const AffiliateOverview = lazy(() => import('./components/Affiliates/AffiliateOverview'));
+const AffiliateWithdrawals = lazy(() => import('./components/Affiliates/AffiliateWithdrawals'));
+const AffiliateHistory = lazy(() => import('./components/Affiliates/AffiliateHistory'));
+const AffiliateSettings = lazy(() => import('./components/Affiliates/AffiliateSettings'));
+
+// Páginas legales y de información
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
+const TerminosCondiciones = lazy(() => import('./components/TerminosCondiciones'));
+const Seguridad = lazy(() => import('./components/Seguridad'));
+
+// Servicios específicos
+const PenalService = lazy(() => import('./components/Services/Penal'));
+const CivilService = lazy(() => import('./components/Services/Civil'));
+const ComercialService = lazy(() => import('./components/Services/Comercial'));
+const TransitoService = lazy(() => import('./components/Services/Transito'));
+const AduanasService = lazy(() => import('./components/Services/Aduanas'));
+
+// Pagos y checkouts
+const PaymentForm = lazy(() => import('./components/Payment/PaymentForm'));
+const CheckoutForm = lazy(() => import('./components/Payment/CheckoutForm'));
+const ThankYouPage = lazy(() => import('./components/Payment/ThankYouPage'));
+
+// Chat y comunicación
+const WhatsAppChat = lazy(() => import('./components/Chat/WhatsAppChat'));
+const LiveChat = lazy(() => import('./components/Chat/LiveChat'));
+
+// Error y páginas 404
+const NotFoundPage = lazy(() => import('./components/Common/NotFoundPage'));
 import Ebooks from './components/Ebooks';
 import PaymentForm from './components/Payment/PaymentForm';
 import ThankYouPage from './components/Payment/ThankYouPage';
@@ -148,35 +211,31 @@ function App() {
   );
 }
 
+// Componente de carga para Suspense
+function LoadingIndicator() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center">
+      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  );
+}
+
 // Componente AppContent separado para usar el contexto de autenticación
 function AppContent() {
-  const { user, loading, authReady } = useAuth();
+  const { user, loading, authReady, isAdmin } = useAuth();
   
-  // Mostrar un indicador de carga mientras se verifica la autenticación
   if (loading && !authReady) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <LoadingIndicator />;
   }
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-grow">
-        <Routes>
-          {/* Rutas públicas */}
-          <Route path="/" element={
-            <>
-              <Hero />
-              <Services />
-              <Testimonials />
-              <Blog />
-              <ProcessSearch />
-              <Newsletter />
-            </>
-          } />
+        <Suspense fallback={<LoadingIndicator />}>
+          <Routes>
+            {/* Página de inicio */}
+            <Route path="/" element={<HomePage />} />
           
           {/* Servicios */}
           <Route path="/servicios/penal" element={<Penal />} />
@@ -249,51 +308,62 @@ function AppContent() {
           <Route path="/gracias" element={<ThankYouPage />} />
           <Route path="/ebooks/download/:id" element={<ProtectedDownload />} />
           
-          {/* Ruta de fallback */}
-          <Route path="*" element={
-            <div className="flex flex-col items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-              <div className="max-w-md w-full space-y-8 text-center">
-                <h1 className="text-4xl font-extrabold text-red-600">404</h1>
-                <h2 className="mt-6 text-3xl font-bold text-gray-900">
-                  Página no encontrada
-                </h2>
-                <p className="mt-2 text-sm text-gray-600">
-                  La página que estás buscando no existe o ha sido movida.
-                </p>
-                <div className="mt-5">
-                  <Link to="/" className="text-blue-600 hover:text-blue-800 font-medium">
-                    Volver al inicio
-                  </Link>
-                </div>
-              </div>
-            </div>
-          } />
-        </Routes>
+            {/* Ruta de fallback (404) */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       </main>
       
       <Footer />
       <CookieConsent />
       <WhatsAppChat />
+      <Toaster position="top-right" toastOptions={{
+        duration: 4000,
+        style: {
+          background: '#363636',
+          color: '#fff',
+          boxShadow: '0 3px 10px rgba(0, 0, 0, 0.15)'
+        }
+      }} />
     </div>
   );
 }
 
 // Componente para proteger rutas que requieren autenticación
 function RequireAuth({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, authReady } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+  if (loading && !authReady) {
+    return <LoadingIndicator />;
   }
   
   if (!user) {
     // Redireccionar al login, guardando la ubicación actual
+    toast.error('Debe iniciar sesión para acceder a esta sección');
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
+
+// Componente para proteger rutas que requieren rol de administrador
+function RequireAdmin({ children }) {
+  const { user, isAdmin, loading, authReady } = useAuth();
+  const location = useLocation();
+
+  if (loading && !authReady) {
+    return <LoadingIndicator />;
+  }
+  
+  if (!user) {
+    toast.error('Debe iniciar sesión para acceder a esta sección');
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  if (!isAdmin) {
+    toast.error('No tiene permisos para acceder a esta sección');
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
