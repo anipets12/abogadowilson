@@ -1,4 +1,5 @@
-import { D1Database, KVNamespace } from '@cloudflare/workers-types'
+import type { KVNamespace } from '@cloudflare/workers-types'
+type D1Database = any // Using 'any' as a temporary fix for the D1Database type
 
 declare global {
   const DB: D1Database

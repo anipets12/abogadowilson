@@ -1,5 +1,8 @@
 import { User } from '@supabase/supabase-js'
-import { D1Database, KVNamespace } from '@cloudflare/workers-types'
+import { KVNamespace } from '@cloudflare/workers-types'
+
+// Define D1Database type locally since it's missing from the current version
+type D1Database = any
 import { PrismaClient } from '@prisma/client'
 
 export interface AuthContextType {
@@ -33,7 +36,9 @@ export interface HealthCheck {
   timestamp: number;
 }
 
-export interface UserData extends LoginData {
+export interface UserData {
+  email: string;
+  password?: string;
   nombre: string;
   telefono?: string;
 }
