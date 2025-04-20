@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+// Importación explícita de React para evitar problemas en Cloudflare Workers
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { dataService } from '../services/apiService';
 import { FaSearch, FaSpinner, FaExclamationTriangle, FaFileAlt } from 'react-icons/fa';

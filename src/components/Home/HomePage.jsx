@@ -1,5 +1,10 @@
-/* Aseguramos que React esté disponible para este componente */
+/* 
+ * HomePage.jsx - Componente principal de la página de inicio
+ * Versión optimizada para entornos de producción en Cloudflare Workers
+ */
 import React, { useEffect, useState, useMemo } from 'react';
+
+// Importar componentes principales (importaciones estáticas para evitar errores de carga dinámica)
 import Hero from '../Hero';
 import Services from '../Services';
 import Testimonials from '../Testimonials';
@@ -8,7 +13,9 @@ import Newsletter from '../Newsletter/Newsletter';
 import ProcessSearch from '../ProcessSearch';
 import SocialMediaIntegration from '../Social/SocialMediaIntegration';
 import IntelligentChatbot from '../Chat/IntelligentChatbot';
-import { Helmet } from 'react-helmet-async';
+
+// Usar nuestro HelmetWrapper seguro en lugar de Helmet directamente
+import HelmetWrapper from '../Common/HelmetWrapper';
 import { toast } from 'react-hot-toast';
 
 const HomePage = () => {
@@ -27,16 +34,14 @@ const HomePage = () => {
   
   return (
     <>
-      <Helmet>
-        <title>Abogado Wilson Ipiales - Asesoría Legal Profesional</title>
-        <meta name="description" content="Servicios legales profesionales por el Abogado Wilson Alexander Ipiales Guerrón. Especialista en derecho penal, civil, tránsito, comercial y aduanas." />
+      <HelmetWrapper
+        title="Abogado Wilson Ipiales - Asesoría Legal Profesional"
+        description="Servicios legales profesionales por el Abogado Wilson Alexander Ipiales Guerrón. Especialista en derecho penal, civil, tránsito, comercial y aduanas."
+        image="/assets/images/abogado-wilson-profile.jpg"
+        url="https://abogado-wilson.anipets12.workers.dev"
+      >
         <meta name="keywords" content="abogado, wilson ipiales, asesoría legal, derecho penal, derecho civil, derecho de tránsito, consulta legal, Ecuador" />
-        <meta property="og:title" content="Abogado Wilson Ipiales - Asesoría Legal Profesional" />
-        <meta property="og:description" content="Servicios legales profesionales por el Abogado Wilson Alexander Ipiales Guerrón. Especialista en derecho penal, civil, tránsito, comercial y aduanas." />
-        <meta property="og:image" content="/assets/images/abogado-wilson-profile.jpg" />
-        <meta property="og:url" content="https://abogadowilson.com" />
-        <meta name="twitter:card" content="summary_large_image" />
-      </Helmet>
+      </HelmetWrapper>
       
       {/* Barra flotante de redes sociales */}
       <SocialMediaIntegration variant="floating" />

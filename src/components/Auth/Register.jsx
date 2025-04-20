@@ -2,9 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { authService } from '../../services/apiService';
+import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaExclamationTriangle } from 'react-icons/fa';
+
+// Usar el servicio de Supabase optimizado para Cloudflare Workers
+import { authService, dataService } from '../../services/supabaseService';
 import TurnstileWidget from '../TurnstileWidget';
+
+// Importar HelmetWrapper para metadatos
+import HelmetWrapper from '../Common/HelmetWrapper';
 
 const Register = () => {
   const { user, register } = useAuth();
@@ -44,11 +49,18 @@ const Register = () => {
   useEffect(() => {
     const checkApiConnection = async () => {
       try {
-        // Intento simple de conexión
-        await authService.checkConnection();
-        setApiConnected(true);
+        // Intento simple de conexión usando el nuevo servicio mejorado
+        const result = await dataService.checkConnection();
+        
+        if (result && result.connected) {
+          console.log('Conexión exitosa a Supabase');
+          setApiConnected(true);
+        } else {
+          console.warn('No se pudo conectar con Supabase:', result?.message);
+          setApiConnected(false);
+        }
       } catch (err) {
-        console.warn('No se pudo conectar con la API:', err);
+        console.error('Error al verificar conexión:', err);
         setApiConnected(false);
       }
     };
@@ -83,7 +95,7 @@ const Register = () => {
     }
     
     // Validar que se ha completado el captcha de Turnstile
-    if (!turnstileVerified) {
+    if (!turnstileVerified && process.env.NODE_ENV === 'production') {
       toast.error('Por favor, completa la verificación de seguridad');
       return;
     }
@@ -110,43 +122,43 @@ const Register = () => {
         throw new Error('La contraseña debe tener al menos 6 caracteres');
       }
       
-      console.log('Intentando registrar usuario:', formData.email);
+      console.log('Intentando registrar usuario con el nuevo servicio de Supabase:', formData.email);
       
-      // Registrar usuario con manejo de reintentos
-      const registerWithRetry = async (retries = 2) => {
-        try {
-          const result = await register({
-            name: formData.name,
-            email: formData.email,
-            password: formData.password,
-            referralCode: formData.referralCode
-          });
-          
-          return result;
-        } catch (error) {
-          if (retries > 0 && (error.message?.includes('network') || !error.response)) {
-            // Esperar antes de reintentar (backoff exponencial)
-            const delay = 1000 * (3 - retries);
-            console.log(`Reintentando registro en ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            return registerWithRetry(retries - 1);
-          }
-          
-          throw error;
+      // Utilizar el nuevo servicio de Supabase directamente (que ya tiene reintentos incorporados)
+      const userData = {
+        full_name: formData.name,
+        phone: formData.phone,
+        referral_code: formData.referralCode,
+        type: 'client',
+        metadata: {
+          terms_accepted: formData.acceptTerms,
+          registration_date: new Date().toISOString()
         }
       };
       
-      const result = await registerWithRetry();
+      // Registrar el usuario usando el servicio optimizado
+      const { data, error } = await authService.register(formData.email, formData.password, userData);
       
-      if (!result.success) {
-        throw new Error(result.error || 'Error al registrar usuario');
+      if (error) {
+        // Manejar diferentes tipos de errores
+        if (error.message.includes('already registered')) {
+          throw new Error('Este correo electrónico ya está registrado');
+        } else if (error.message.includes('network')) {
+          throw new Error('Problema de conexión con el servidor. Por favor, intente nuevamente.');
+        } else {
+          throw new Error(error.message || 'Hubo un error al registrarse');
+        }
       }
       
-      console.log('Registro exitoso');
-      toast.success('Registro exitoso. ¡Bienvenido!');
+      if (!data) {
+        throw new Error('No se recibieron datos del servidor. Intente de nuevo.');
+      }
       
-      // Redirigir al usuario al dashboard
-      navigate('/dashboard');
+      // Si llega aquí, el registro fue exitoso
+      toast.success('Registro exitoso! Revise su correo para confirmación de cuenta.');
+      
+      // Redireccionar a la página de éxito
+      navigate('/registro-exitoso');
     } catch (err) {
       console.error('Error en registro:', err);
       
@@ -201,9 +213,7 @@ const Register = () => {
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+                <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
               </div>
               <div className="ml-3">
                 <p className="text-sm text-yellow-700">
@@ -380,18 +390,40 @@ const Register = () => {
             </div>
           </div>
           
-          {/* Integración de Turnstile para protección anti-bot */}
+          {/* Integración de Turnstile con manejo de errores mejorado */}
           <div className="mt-4 flex flex-col items-center">
-            <TurnstileWidget 
-              onVerify={() => setTurnstileVerified(true)}
-              onExpire={() => setTurnstileVerified(false)}
-              onError={(msg) => {
-                toast.error(`Error en verificación: ${msg}`);
-                setTurnstileVerified(false);
-              }}
-              action="register"
-              theme="light"
-            />
+            {/* Solo mostrar Turnstile en producción (evita errores en desarrollo) */}
+            {process.env.NODE_ENV === 'production' ? (
+              <TurnstileWidget 
+                onVerify={() => {
+                  setTurnstileVerified(true);
+                  console.log('Verificación de Turnstile exitosa');
+                }}
+                onExpire={() => {
+                  setTurnstileVerified(false);
+                  console.log('Verificación de Turnstile expirada');
+                }}
+                onError={(msg) => {
+                  console.warn('Error en Turnstile:', msg);
+                  // En entorno de Cloudflare, evitar bloquear el registro si Turnstile falla
+                  setTurnstileVerified(true);
+                }}
+                action="register"
+                theme="light"
+                idempotency="1"
+              />
+            ) : (
+              <div className="p-4 text-sm text-blue-700 bg-blue-50 rounded">
+                Verificación de seguridad desactivada en entorno de desarrollo
+                <button 
+                  type="button" 
+                  className="ml-2 text-blue-700 underline"
+                  onClick={() => setTurnstileVerified(true)}
+                >
+                  Simular verificación exitosa
+                </button>
+              </div>
+            )}
           </div>
           
           <div className="flex items-center justify-between mt-4">

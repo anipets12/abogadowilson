@@ -1,7 +1,20 @@
-import { useState } from 'react';
+/**
+ * JudicialNews.jsx
+ * Componente para mostrar noticias judiciales en la página principal
+ * Versión optimizada para Cloudflare Workers con refuerzo de disponibilidad React
+ */
+
+// Asegurarse de que React esté disponible globalmente
+if (typeof window !== 'undefined' && !window.React) {
+  window.React = require('react');
+}
+
+// Importación explícita de React
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-export default function JudicialNews() {
+// Envolver en un HOC para garantizar disponibilidad de React
+const JudicialNewsComponent = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
   
   const categories = ['Todos', 'Nacional', 'Local', 'Constitucional', 'Penal', 'Civil'];
@@ -182,4 +195,13 @@ export default function JudicialNews() {
       </div>
     </div>
   );
-}
+};
+
+// Envolvemos el componente en un HOC con React garantizado
+const JudicialNews = React.memo(JudicialNewsComponent);
+
+// Renderización con referencia explícita a React
+const JudicialNewsWithReact = (props) => React.createElement(JudicialNews, props);
+
+// Exportamos con React garantizado
+export default JudicialNewsWithReact;
