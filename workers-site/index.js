@@ -4,10 +4,8 @@ import { handleSupabaseProxy, checkSupabaseConnection } from './api/supabase-pro
 import { handleSearches } from './api/searches'
 import { handleLegalQueries } from './api/legal-queries'
 import { handleBlogRequests } from './api/blog'
-
-// Importar los nuevos manejadores desde functions/api
-import { onRequest as handleConfigRequest } from '../functions/api/config.js'
-import { onRequest as handleProxyRequest } from '../functions/api/proxy.js'
+import { handleConfigRequest } from './api/config-handler'
+import { handleProxyRequest } from './api/proxy-handler'
 
 /**
  * Worker para servir sitio estático SPA con Cloudflare Workers
