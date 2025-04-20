@@ -9,6 +9,17 @@ import Footer from './components/Footer/Footer';
 import CookieConsent from './components/Common/CookieConsent';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 
+// Importaciones estáticas para los componentes que dan problemas
+import ConsultasPenales from './components/ConsultasPenales';
+import ConsultasTransito from './components/ConsultasTransito';
+import ConsultasCiviles from './components/ConsultasCiviles';
+import ConsultationHub from './components/Consultation/ConsultationHub';
+import LiveChat from './components/Chat/LiveChat';
+import Afiliados from './components/Afiliados';
+import Referidos from './components/Referidos';
+import JudicialNews from './components/JudicialNews';
+import Ebooks from './components/Ebooks';
+
 // Páginas principales
 const HomePage = lazy(() => import('./components/Home/HomePage'));
 const AboutPage = lazy(() => import('./components/About/AboutPage'));
@@ -50,19 +61,19 @@ const AppointmentScheduler = lazy(() => import('./components/Appointment/Appoint
 */
 
 // Consultas y servicios legales
-const ConsultasPenales = lazy(() => import('./components/ConsultasPenales'));
-const ConsultasTransito = lazy(() => import('./components/ConsultasTransito'));
-const ConsultasCiviles = lazy(() => import('./components/ConsultasCiviles'));
-const ConsultationHub = lazy(() => import('./components/Consultation/ConsultationHub'));
-const LiveChat = lazy(() => import('./components/Chat/LiveChat'));
+// const ConsultasPenales = lazy(() => import('./components/ConsultasPenales'));
+// const ConsultasTransito = lazy(() => import('./components/ConsultasTransito'));
+// const ConsultasCiviles = lazy(() => import('./components/ConsultasCiviles'));
+// const ConsultationHub = lazy(() => import('./components/Consultation/ConsultationHub'));
+// const LiveChat = lazy(() => import('./components/Chat/LiveChat'));
 
 // Blog y contenido
 const BlogList = lazy(() => import('./components/Blog/BlogList'));
 const BlogArticle = lazy(() => import('./components/Blog/BlogArticle'));
 const EbookStore = lazy(() => import('./components/Ebooks/EbookStore'));
 const NewsletterSignup = lazy(() => import('./components/Newsletter/NewsletterSignup'));
-const JudicialNews = lazy(() => import('./components/JudicialNews'));
-const Ebooks = lazy(() => import('./components/Ebooks'));
+// const JudicialNews = lazy(() => import('./components/JudicialNews'));
+// const Ebooks = lazy(() => import('./components/Ebooks'));
 
 // Foro
 // Comentado temporalmente para permitir la compilación
@@ -73,8 +84,8 @@ const ForumNewTopic = lazy(() => import('./components/Forum/ForumNewTopic'));
 */
 
 // Afiliados y referidos
-const Afiliados = lazy(() => import('./components/Afiliados'));
-const Referidos = lazy(() => import('./components/Referidos'));
+// const Afiliados = lazy(() => import('./components/Afiliados'));
+// const Referidos = lazy(() => import('./components/Referidos'));
 
 // Páginas legales y de información
 // Comentado temporalmente para permitir la compilación
