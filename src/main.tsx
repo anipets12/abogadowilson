@@ -1,3 +1,5 @@
+// Importar React global primero
+import './jsxImportSource';
 import React, { Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'

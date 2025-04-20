@@ -15,6 +15,8 @@ export default defineConfig({
   },
   plugins: [
     react({
+      // Configuración para incluir automáticamente React en todos los componentes
+      jsxRuntime: 'automatic',
       babel: {
         plugins: [
           '@babel/plugin-transform-react-jsx'
