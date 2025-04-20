@@ -31,6 +31,7 @@ import PaymentForm from './components/Payment/PaymentForm';
 import CheckoutForm from './components/Payment/CheckoutForm';
 import ThankYouPage from './components/Payment/ThankYouPage';
 import ProtectedDownload from './components/ProtectedDownload';
+import WhatsAppChat from './components/Chat/WhatsAppChat';
 
 // Páginas principales
 const HomePage = lazy(() => import('./components/Home/HomePage'));
@@ -123,10 +124,6 @@ const ThankYouPage = lazy(() => import('./components/Payment/ThankYouPage'));
 */
 
 // Chat y comunicación
-// Comentado temporalmente para permitir la compilación
-/*
-const WhatsAppChat = lazy(() => import('./components/Chat/WhatsAppChat'));
-*/
 
 // Error y páginas 404
 const NotFoundPage = lazy(() => import('./components/Common/NotFoundPage'));
@@ -274,6 +271,7 @@ function AppContent() {
           {/* Otras rutas */}
           <Route path="/contacto" element={<ContactPage />} />
           <Route path="/chat" element={<LiveChat />} />
+          <Route path="/whatsapp" element={<WhatsAppChat />} />
           <Route path="/noticias" element={<JudicialNews />} />
           <Route path="/afiliados" element={<Afiliados />} />
           <Route path="/referidos" element={<Referidos />} />
