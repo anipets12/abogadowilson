@@ -19,6 +19,11 @@ import Afiliados from './components/Afiliados';
 import Referidos from './components/Referidos';
 import JudicialNews from './components/JudicialNews';
 import Ebooks from './components/Ebooks';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TerminosCondiciones from './components/TerminosCondiciones';
+import Seguridad from './components/Seguridad';
+import Forum from './components/Forum/Forum';
+import TopicDetail from './components/Forum/TopicDetail';
 
 // Páginas principales
 const HomePage = lazy(() => import('./components/Home/HomePage'));
