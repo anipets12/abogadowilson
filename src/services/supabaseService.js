@@ -652,9 +652,6 @@ export const dataService = {
   }
 };
 
-// Exportar cliente de Supabase para uso directo si es necesario
-export { supabase };
-
 // Exportar por defecto los servicios
 export default {
   auth: authService,
