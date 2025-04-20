@@ -18,6 +18,7 @@ bucket = "./dist"
 [limits]
 memory_mb = 128
 max_upload_size = "10MB"
+cpu_ms = 50
 
 [vars]
 ENVIRONMENT = "production"
