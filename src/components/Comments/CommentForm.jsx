@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabase';
 import FileUploader from './FileUploader';
-import { useToken } from '../../services/tokenService';
+import { useToken } from '../../services/useToken';
 import { toast } from 'react-hot-toast';
 
 const CommentForm = ({ postId }) => {

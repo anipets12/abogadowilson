@@ -24,6 +24,13 @@ import TerminosCondiciones from './components/TerminosCondiciones';
 import Seguridad from './components/Seguridad';
 import Forum from './components/Forum/Forum';
 import TopicDetail from './components/Forum/TopicDetail';
+import DashboardPage from './components/Dashboard/DashboardPage';
+import ClientDashboard from './components/Dashboard/ClientDashboard';
+import AppointmentCalendar from './components/Appointment/AppointmentCalendar';
+import PaymentForm from './components/Payment/PaymentForm';
+import CheckoutForm from './components/Payment/CheckoutForm';
+import ThankYouPage from './components/Payment/ThankYouPage';
+import ProtectedDownload from './components/ProtectedDownload';
 
 // Páginas principales
 const HomePage = lazy(() => import('./components/Home/HomePage'));
