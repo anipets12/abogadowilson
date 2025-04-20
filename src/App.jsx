@@ -50,24 +50,19 @@ const AppointmentScheduler = lazy(() => import('./components/Appointment/Appoint
 */
 
 // Consultas y servicios legales
-// Comentado temporalmente para permitir la compilación
-/*
-const ConsultationHub = lazy(() => import('./components/Consultation/ConsultationHub'));
-const QuickConsultationForm = lazy(() => import('./components/Consultation/QuickConsultationForm'));
 const ConsultasPenales = lazy(() => import('./components/ConsultasPenales'));
 const ConsultasTransito = lazy(() => import('./components/ConsultasTransito'));
 const ConsultasCiviles = lazy(() => import('./components/ConsultasCiviles'));
-*/
+const ConsultationHub = lazy(() => import('./components/Consultation/ConsultationHub'));
+const LiveChat = lazy(() => import('./components/Chat/LiveChat'));
 
 // Blog y contenido
-// Comentado temporalmente para permitir la compilación
-/*
 const BlogList = lazy(() => import('./components/Blog/BlogList'));
 const BlogArticle = lazy(() => import('./components/Blog/BlogArticle'));
 const EbookStore = lazy(() => import('./components/Ebooks/EbookStore'));
 const NewsletterSignup = lazy(() => import('./components/Newsletter/NewsletterSignup'));
 const JudicialNews = lazy(() => import('./components/JudicialNews'));
-*/
+const Ebooks = lazy(() => import('./components/Ebooks'));
 
 // Foro
 // Comentado temporalmente para permitir la compilación
@@ -78,13 +73,8 @@ const ForumNewTopic = lazy(() => import('./components/Forum/ForumNewTopic'));
 */
 
 // Afiliados y referidos
-// Comentado temporalmente para permitir la compilación
-/*
-const AffiliateOverview = lazy(() => import('./components/Affiliates/AffiliateOverview'));
-const AffiliateWithdrawals = lazy(() => import('./components/Affiliates/AffiliateWithdrawals'));
-const AffiliateHistory = lazy(() => import('./components/Affiliates/AffiliateHistory'));
-const AffiliateSettings = lazy(() => import('./components/Affiliates/AffiliateSettings'));
-*/
+const Afiliados = lazy(() => import('./components/Afiliados'));
+const Referidos = lazy(() => import('./components/Referidos'));
 
 // Páginas legales y de información
 // Comentado temporalmente para permitir la compilación
@@ -113,13 +103,10 @@ const ThankYouPage = lazy(() => import('./components/Payment/ThankYouPage'));
 // Comentado temporalmente para permitir la compilación
 /*
 const WhatsAppChat = lazy(() => import('./components/Chat/WhatsAppChat'));
-const LiveChat = lazy(() => import('./components/Chat/LiveChat'));
 */
 
 // Error y páginas 404
 const NotFoundPage = lazy(() => import('./components/Common/NotFoundPage'));
-const Ebooks = lazy(() => import('./components/Ebooks'));
-// Ya está importado como lazy arriba
 
 // Servicios específicos ya importados como lazy arriba (PenalService, etc.)
 
