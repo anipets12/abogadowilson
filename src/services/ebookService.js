@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabaseClient';
+import { supabase } from '../supabase';
 import api from './apiService';
 
 export const ebookService = {

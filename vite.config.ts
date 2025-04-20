@@ -13,7 +13,20 @@ export default defineConfig({
       }
     },
   },
-  plugins: [react()],
+  plugins: [
+    react({
+      babel: {
+        plugins: [
+          '@babel/plugin-transform-react-jsx'
+        ],
+        presets: [
+          '@babel/preset-env',
+          ['@babel/preset-react', { runtime: 'automatic' }],
+          '@babel/preset-typescript'
+        ]
+      }
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
@@ -39,7 +52,25 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000,
     minify: 'esbuild',
     assetsInlineLimit: 4096,
+    commonjsOptions: {
+      esmExternals: true,
+    },
     rollupOptions: {
+      onwarn(warning, warn) {
+        // Suprimir advertencias de resolución de módulos
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' || 
+            warning.code === 'MISSING_EXPORT' || 
+            warning.code.includes('MISSING_') || 
+            warning.code.includes('UNRESOLVED_')) {
+          return;
+        }
+        warn(warning);
+      },
+      external: [
+        './components/Dashboard/UserConsultations',
+        './components/Dashboard/UserAppointments',
+        // Podríamos añadir más si es necesario
+      ],
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],

@@ -7,7 +7,7 @@ import Newsletter from '../Newsletter/Newsletter';
 import ProcessSearch from '../ProcessSearch';
 import SocialMediaIntegration from '../Social/SocialMediaIntegration';
 import IntelligentChatbot from '../Chat/IntelligentChatbot';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { toast } from 'react-hot-toast';
 
 const HomePage = () => {

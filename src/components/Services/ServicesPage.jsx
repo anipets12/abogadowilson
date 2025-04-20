@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { FaBalanceScale, FaGavel, FaCar, FaBuilding, FaShip, FaMoneyBillWave, FaUserTie } from 'react-icons/fa';
 import { TypeAnimation } from 'react-type-animation';
