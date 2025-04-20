@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --emptyOutDir",
+    "build": "vite build --emptyOutDir && cp _routes.json dist/",
     "preview": "vite preview",
     "start:worker": "wrangler dev --port 3000",
     "deploy:worker": "wrangler deploy",
@@ -45,7 +45,7 @@
     "@babel/preset-env": "7.26.9",
     "@babel/preset-react": "7.26.3",
     "@babel/preset-typescript": "7.27.0",
-    "@cloudflare/kv-asset-handler": "^0.3.0",
+    "@cloudflare/kv-asset-handler": "0.3.4",
     "@cloudflare/workers-types": "^4.20250419.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",

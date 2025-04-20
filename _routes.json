@@ -1,0 +1,1 @@
+{\n  \"version\": 1,\n  \"include\": [\n    \"/*\"\n  ],\n  \"exclude\": [],\n  \"routes\": [\n    {\n      \"src\": \"/(.*)\\\\.(.*)$\",\n      \"dest\": \"/$1.$2\"\n    },\n    {\n      \"src\": \"/(.*)\",\n      \"dest\": \"/index.html\"\n    }\n  ]\n}
