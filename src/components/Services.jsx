@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaGavel, FaBalanceScale, FaCarCrash, FaShip, FaBuilding, FaHandshake, FaFileContract, FaUserTie, FaMoneyBillWave } from 'react-icons/fa';
@@ -365,4 +365,4 @@ const Services = () => {
   );
 };
 
-export default Services;
+export default React.memo(Services);

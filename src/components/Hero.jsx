@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaWhatsapp, FaCalendarAlt, FaArrowRight, FaUserTie, FaShieldAlt, FaFileContract, FaClock } from 'react-icons/fa';
