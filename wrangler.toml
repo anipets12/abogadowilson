@@ -4,18 +4,12 @@ compatibility_date = "2024-02-14"
 account_id = "f21b24d86935a055c03d21f7fffd1514"
 workers_dev = true
 
+# Configuración simplificada de sitio estático
+[site]
+bucket = "./dist"
+
 [vars]
 ENVIRONMENT = "production"
 CORS_ORIGIN = "*"
 
-[site]
-bucket = "./dist"
-
-# Para sitios estáticos, Cloudflare usa automáticamente __STATIC_CONTENT
-# No se necesita especificar el KV namespace manualmente
-
-# D1 Databases
-# D1 no es necesario para un sitio estático, lo comentamos por ahora
-# [[d1_databases]]
-# binding = "DB"
-# database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176"
+# Configuraciones adicionales que podrían causar problemas se han eliminado

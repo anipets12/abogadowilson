@@ -1,52 +1,43 @@
-// Worker para Cloudflare Pages - Patrón oficial recomendado
-
 /**
- * El método principal que Cloudflare invoca para manejar las solicitudes
+ * El worker más simple y compatible con Cloudflare Pages
+ * https://developers.cloudflare.com/workers/examples/sites/
  */
+
 export default {
   async fetch(request, env, ctx) {
-    // Tomar la URL de la solicitud
+    // Recuperamos la URL solicitada
     const url = new URL(request.url);
     
     try {
-      // Primero intenta obtener el archivo estático solicitado
-      let asset = await env.ASSETS.fetch(request.clone());
-      
-      // Si la petición fue exitosa, devolver el asset
-      if (asset.status < 400) {
-        return asset;
-      }
-      
-      // Si es una ruta de aplicación (sin extensión de archivo), servir index.html
-      if (!url.pathname.includes('.')) {
-        // Redirigir a index.html para manejar rutas de SPA
-        let indexRequest = new Request(`${url.origin}/index.html`, request);
-        asset = await env.ASSETS.fetch(indexRequest);
-        // En lugar de error 404, enviamos un 200 con el contenido de index.html
-        return new Response(asset.body, {
-          ...asset,
-          status: 200
+      // Para debugging, usar este header para ver qué bindings están disponibles
+      if (url.pathname === '/debug') {
+        const bindings = Object.keys(env).join(', ');
+        return new Response(`Bindings disponibles: ${bindings}`, {
+          headers: { 'Content-Type': 'text/plain' }
         });
       }
       
-      // Si solicitaron favicon.ico y no existe, devolvemos un Response vacío 204
-      // para evitar errores en el navegador
+      // Si es favicon.ico, devolver un status 204
       if (url.pathname === '/favicon.ico') {
         return new Response(null, { status: 204 });
       }
       
-      // Para cualquier otro caso, devolver la respuesta original
-      return asset;
-    } catch (e) {
-      // Log del error para depuración
-      console.error("Error en el worker:", e);
+      // Intenta obtener el activo estático del namespace __STATIC_CONTENT
+      let response = await env.__STATIC_CONTENT.fetch(request);
+
+      // Si no se encontró el recurso y es una ruta sin extensión (SPA route)
+      if (response.status === 404 && !url.pathname.includes('.')) {
+        // Recuperar index.html para rutas SPA
+        response = await env.__STATIC_CONTENT.fetch(new URL('/', url));
+      }
       
-      // Devolver una respuesta de error amigable
-      return new Response(`Servidor en mantenimiento. Por favor, intente más tarde.`, {
-        status: 503,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+      return response;
+    } catch (e) {
+      // En caso de error, devolver una respuesta simple
+      return new Response(`Error: ${e.message}`, {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain' }
       });
     }
   }
 };
-

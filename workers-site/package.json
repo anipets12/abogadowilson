@@ -1,0 +1,1 @@
+{\n  \"name\": \"abogado-wilson-workers-site\",\n  \"private\": true,\n  \"version\": \"1.0.0\",\n  \"description\": \"Worker para servir sitio estático de Abogado Wilson\",\n  \"main\": \"index.js\",\n  \"license\": \"UNLICENSED\",\n  \"dependencies\": {\n    \"@cloudflare/kv-asset-handler\": \"^0.3.0\"\n  }\n}
