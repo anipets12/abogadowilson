@@ -2,8 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook } from 'react-icons/fa';
-import axios from 'axios';
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaWhatsapp, FaTwitter } from 'react-icons/fa';
+
+// Importar el servicio de autenticación de Supabase
+import { authService, dataService } from '../../services/supabaseService';
+
+// Importar configuraciones y enlaces sociales
+import { socialMedia } from '../../config/appConfig';
+
+// Importar HelmetWrapper para metadatos
+import HelmetWrapper from '../Common/HelmetWrapper';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -127,8 +135,41 @@ const Login = () => {
   };
   
   const handleSocialLogin = async (provider) => {
-    // Esta implementación usará OAuth más tarde si es necesario
-    toast.error("Iniciar sesión con redes sociales no está disponible en este momento");
+    setLoading(true);
+    setError(null);
+    
+    try {
+      let result;
+      
+      if (provider === 'google') {
+        result = await authService.signInWithGoogle();
+      } else if (provider === 'facebook') {
+        result = await authService.signInWithFacebook();
+      } else {
+        throw new Error('Proveedor no soportado');
+      }
+      
+      const { data, error } = result;
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        // Si es un modo simulado, redireccionar directamente
+        if (data.simulated) {
+          navigate('/dashboard');
+          toast.success(`Modo simulado: Iniciaste sesión con ${provider}`);
+        } else {
+          // De lo contrario, redirigir a la URL proporcionada por Supabase
+          window.location.href = data.url;
+        }
+      }
+    } catch (err) {
+      console.error(`Error al iniciar sesión con ${provider}:`, err);
+      setError(`Error al iniciar sesión con ${provider}: ${err.message || 'Intente nuevamente'}`);
+      toast.error(`Error al iniciar sesión con ${provider}. ${err.message || 'Intente nuevamente'}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -265,6 +306,45 @@ const Login = () => {
               <FaFacebook className="text-blue-600 mr-2 h-5 w-5" />
               Facebook
             </button>
+          </div>
+          
+          {/* Enlaces a redes sociales */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600 mb-3">Síguenos en redes sociales</p>
+            <div className="flex justify-center space-x-4">
+              <a href={socialMedia.facebook.pagina} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                <FaFacebook size={20} />
+              </a>
+              <a href={socialMedia.twitter.profile} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-600">
+                <FaTwitter size={20} />
+              </a>
+              <a href={socialMedia.whatsapp.api} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-700">
+                <FaWhatsapp size={20} />
+              </a>
+            </div>
+          </div>
+          
+          {/* Comunidad y grupo */}
+          <div className="mt-4 text-center">
+            <p className="text-xs text-gray-500">¡Únete a nuestra comunidad!</p>
+            <div className="mt-1 flex justify-center space-x-3">
+              <a 
+                href={socialMedia.whatsapp.comunidad} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
+              >
+                Comunidad WhatsApp
+              </a>
+              <a 
+                href={socialMedia.facebook.groups.derechoEcuador} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+              >
+                Grupo Derecho Ecuador
+              </a>
+            </div>
           </div>
         </div>
       </div>

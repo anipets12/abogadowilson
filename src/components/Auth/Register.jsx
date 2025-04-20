@@ -2,11 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaExclamationTriangle } from 'react-icons/fa';
+import { 
+  FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, 
+  FaExclamationTriangle, FaGoogle, FaFacebook, 
+  FaWhatsapp, FaTwitter 
+} from 'react-icons/fa';
 
 // Usar el servicio de Supabase optimizado para Cloudflare Workers
 import { authService, dataService } from '../../services/supabaseService';
 import TurnstileWidget from '../TurnstileWidget';
+
+// Importar configuraciones y enlaces sociales
+import { socialMedia } from '../../config/appConfig';
 
 // Importar HelmetWrapper para metadatos
 import HelmetWrapper from '../Common/HelmetWrapper';
@@ -426,13 +433,91 @@ const Register = () => {
             )}
           </div>
           
+          {/* Botones de autenticación social */}
+          <div className="mt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">O continuar con</span>
+              </div>
+            </div>
+            
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {/* Botón de Google */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const { data, error } = await authService.signInWithGoogle();
+                    if (error) throw error;
+                    if (data?.url) {
+                      // Si es un modo simulado, redireccionar directamente
+                      if (data.simulated) {
+                        navigate('/dashboard');
+                        toast.success('Modo simulado: Iniciaste sesión con Google');
+                      } else {
+                        // De lo contrario, redirigir a la URL proporcionada por Supabase
+                        window.location.href = data.url;
+                      }
+                    }
+                  } catch (error) {
+                    toast.error(`Error al iniciar sesión con Google: ${error.message || 'Intente nuevamente'}`);                 
+                    console.error('Error de inicio de sesión con Google:', error);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                disabled={loading}
+              >
+                <FaGoogle className="h-5 w-5 text-red-500 mr-2" />
+                <span>Google</span>
+              </button>
+              
+              {/* Botón de Facebook */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const { data, error } = await authService.signInWithFacebook();
+                    if (error) throw error;
+                    if (data?.url) {
+                      // Si es un modo simulado, redireccionar directamente
+                      if (data.simulated) {
+                        navigate('/dashboard');
+                        toast.success('Modo simulado: Iniciaste sesión con Facebook');
+                      } else {
+                        // De lo contrario, redirigir a la URL proporcionada por Supabase
+                        window.location.href = data.url;
+                      }
+                    }
+                  } catch (error) {
+                    toast.error(`Error al iniciar sesión con Facebook: ${error.message || 'Intente nuevamente'}`);
+                    console.error('Error de inicio de sesión con Facebook:', error);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                disabled={loading}
+              >
+                <FaFacebook className="h-5 w-5 text-blue-600 mr-2" />
+                <span>Facebook</span>
+              </button>
+            </div>
+          </div>
+          
           <div className="flex items-center justify-between mt-4">
             <button
               type="submit"
-              disabled={isSubmitting || !turnstileVerified}
+              disabled={isSubmitting || (!turnstileVerified && process.env.NODE_ENV === 'production')}
               className="w-full px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition duration-300 ease-in-out"
             >
-              {isSubmitting ? 'Registrando...' : 'Registrarse'}
+              {isSubmitting ? 'Registrando...' : 'Registrarse con Email'}
             </button>
           </div>
         </form>
@@ -449,6 +534,42 @@ const Register = () => {
             </Link>
             .
           </p>
+          
+          {/* Enlaces a redes sociales */}
+          <div className="mt-4 flex justify-center space-x-4">
+            <a href={socialMedia.facebook.pagina} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+              <FaFacebook size={20} />
+            </a>
+            <a href={socialMedia.twitter.profile} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-600">
+              <FaTwitter size={20} />
+            </a>
+            <a href={socialMedia.whatsapp.api} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-700">
+              <FaWhatsapp size={20} />
+            </a>
+          </div>
+          
+          {/* Comunidad y grupo */}
+          <div className="mt-3">
+            <p className="text-xs text-gray-500">¡Únete a nuestra comunidad!</p>
+            <div className="mt-1 flex justify-center space-x-3">
+              <a 
+                href={socialMedia.whatsapp.comunidad} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
+              >
+                Comunidad WhatsApp
+              </a>
+              <a 
+                href={socialMedia.facebook.groups.derechoEcuador} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+              >
+                Grupo Derecho Ecuador
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

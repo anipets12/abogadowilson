@@ -32,6 +32,7 @@ import CheckoutForm from './components/Payment/CheckoutForm';
 import ThankYouPage from './components/Payment/ThankYouPage';
 import ProtectedDownload from './components/ProtectedDownload';
 import WhatsAppChat from './components/Chat/WhatsAppChat';
+import AuthCallback from './components/Auth/AuthCallback';
 
 // Páginas principales
 const HomePage = lazy(() => import('./components/Home/HomePage'));
@@ -298,6 +299,8 @@ function AppContent() {
           <Route path="/reset-password" element={
             user ? <Navigate to="/dashboard" /> : <ResetPassword />
           } />
+          {/* Callback para autenticación social */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
           
           {/* Rutas protegidas */}
           <Route path="/dashboard" element={

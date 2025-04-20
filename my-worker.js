@@ -1,43 +1,66 @@
+// Worker para Cloudflare Workers que usa getAssetFromKV
+// Compatibilidad garantizada con el enfoque tradicional
+
+import { getAssetFromKV } from '@cloudflare/kv-asset-handler'
+
+// Evento principal que Cloudflare invoca
+addEventListener('fetch', event => {
+  event.respondWith(handleEvent(event))
+})
+
 /**
- * El worker más simple y compatible con Cloudflare Pages
- * https://developers.cloudflare.com/workers/examples/sites/
+ * Maneja todas las solicitudes web
  */
-
-export default {
-  async fetch(request, env, ctx) {
-    // Recuperamos la URL solicitada
-    const url = new URL(request.url);
+async function handleEvent(event) {
+  const url = new URL(event.request.url)
+  
+  // Caso especial para favicon.ico - devolver respuesta vacía
+  if (url.pathname === '/favicon.ico') {
+    return new Response(null, { status: 204 })
+  }
+  
+  try {
+    // Opciones para manejar rutas SPA
+    const options = {
+      mapRequestToAsset: req => {
+        // Servir index.html para rutas sin extensión (rutas SPA)
+        const url = new URL(req.url)
+        if (!url.pathname.includes('.')) {
+          return new Request(`${url.origin}/index.html`, req)
+        }
+        return req
+      }
+    }
     
+    // Intenta obtener el activo desde KV
+    const page = await getAssetFromKV(event, options)
+    
+    // Devolver activo con headers adicionales
+    const response = new Response(page.body, page)
+    response.headers.set('X-XSS-Protection', '1; mode=block')
+    response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('X-Frame-Options', 'DENY')
+    response.headers.set('Referrer-Policy', 'no-referrer-when-downgrade')
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    
+    return response
+  } catch (e) {
+    // Si ocurre un error, intentar servir index.html
     try {
-      // Para debugging, usar este header para ver qué bindings están disponibles
-      if (url.pathname === '/debug') {
-        const bindings = Object.keys(env).join(', ');
-        return new Response(`Bindings disponibles: ${bindings}`, {
-          headers: { 'Content-Type': 'text/plain' }
-        });
-      }
+      const notFoundResponse = await getAssetFromKV(event, {
+        mapRequestToAsset: req => new Request(`${new URL(req.url).origin}/index.html`, req)
+      })
       
-      // Si es favicon.ico, devolver un status 204
-      if (url.pathname === '/favicon.ico') {
-        return new Response(null, { status: 204 });
-      }
-      
-      // Intenta obtener el activo estático del namespace __STATIC_CONTENT
-      let response = await env.__STATIC_CONTENT.fetch(request);
-
-      // Si no se encontró el recurso y es una ruta sin extensión (SPA route)
-      if (response.status === 404 && !url.pathname.includes('.')) {
-        // Recuperar index.html para rutas SPA
-        response = await env.__STATIC_CONTENT.fetch(new URL('/', url));
-      }
-      
-      return response;
+      return new Response(notFoundResponse.body, {
+        ...notFoundResponse,
+        status: 200
+      })
     } catch (e) {
-      // En caso de error, devolver una respuesta simple
-      return new Response(`Error: ${e.message}`, {
+      // Mensaje de error amigable para el usuario final
+      return new Response('Esta página no está disponible en este momento. Por favor, intente más tarde.', {
         status: 500,
-        headers: { 'Content-Type': 'text/plain' }
-      });
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+      })
     }
   }
-};
+}
