@@ -1,23 +1,23 @@
 name = "abogado-wilson"
-company_name = "abogado-wilson"
-# Versión actualizada con rutas optimizadas
+# Punto de entrada principal
 main = "workers-site/index.js"
 compatibility_date = "2024-04-20"
 account_id = "f21b24d86935a055c03d21f7fffd1514"
 workers_dev = true
 
-# Configuración para sitio estático con funciones avanzadas
+# Configuración para sitio estático
 [site]
 bucket = "./dist"
-# Agregar archivo de rutas personalizadas para asegurar rutas API
 include = ["_routes.json"]
 
 # Configuración de entorno
 [env.production]
 name = "abogado-wilson"
-route = "abogado-wilson.anipets12.workers.dev/*"
+routes = [
+  "abogado-wilson.anipets12.workers.dev/*"
+]
 
-# Variables de entorno optimizadas
+# Variables de entorno
 [vars]
 ENVIRONMENT = "production"
 CORS_ORIGIN = "*"
@@ -27,18 +27,6 @@ SUPABASE_KEY = "sbp_db5898ecc094d37ec87562399efe3833e63ab20f"
 CLIENT_VERSION = "3.0.0"
 DISABLE_MULTIPLE_CLIENTS = "true"
 
-# Configuración avanzada de rutas para asegurar funcionamiento de API
-[[routes]]
-pattern = "/api/config*"
-script = "workers-site/index.js"
-
-[[routes]]
-pattern = "/api/proxy*"
-script = "workers-site/index.js"
-
-# Configuración de seguridad y caché
+# Configuración de build
 [build]
 command = "npm run build"
-
-[build.upload]
-format = "service-worker"
