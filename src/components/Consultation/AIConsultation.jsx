@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { supabaseService, dataService, authService } from '../../services/supabaseService';
-import { FallbackLoader } from '../Common/FallbackLoader';
+import FallbackLoader from '../Common/FallbackLoader';
 
 // Componente para consultas de IA
 const AIConsultation = () => {

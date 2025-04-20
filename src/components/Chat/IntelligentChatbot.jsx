@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaRobot, FaUser, FaPaperPlane, FaTimes, FaSpinner } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
-// Futura importaciu00f3n del servicio de Mistral
+// Futura importación del servicio de Mistral
 // import { mistralService } from '../../services/mistralService';
 
 const IntelligentChatbot = () => {
@@ -14,7 +14,7 @@ const IntelligentChatbot = () => {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
   
-  // Scroll automu00e1tico a u00faltimo mensaje
+  // Scroll automático a último mensaje
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -36,8 +36,8 @@ const IntelligentChatbot = () => {
     setLoading(true);
     
     try {
-      // Aquu00ed llamaru00edamos al servicio de Mistral
-      // En futuras implementaciones, cuando estu00e9 listo Mistral API
+      // Aquí llamaríamos al servicio de Mistral
+      // En futuras implementaciones, cuando esté listo Mistral API
       // const response = await mistralService.generateLegalAdvice(inputMessage, "general");
       
       // Simulamos una respuesta para la demo
@@ -52,9 +52,9 @@ const IntelligentChatbot = () => {
       
       setMessages(prev => [...prev, botResponse]);
       
-      // Guardar conversaciu00f3n en base de datos si el usuario estu00e1 logueado
+      // Guardar conversación en base de datos si el usuario está logueado
       if (user) {
-        // Futura implementaciu00f3n: guardar conversaciu00f3n
+        // Futura implementación: guardar conversación
         // saveConversation(userMessage, botResponse);
       }
       
@@ -62,7 +62,7 @@ const IntelligentChatbot = () => {
       console.error('Error al generar respuesta:', error);
       const errorMessage = {
         id: Date.now() + 1,
-        text: "Lo siento, hubo un error al procesar su consulta. Por favor, intente nuevamente o contu00e1ctenos directamente por WhatsApp.",
+        text: "Lo siento, hubo un error al procesar su consulta. Por favor, intente nuevamente o contáctenos directamente por WhatsApp.",
         sender: 'bot',
         timestamp: new Date().toISOString(),
         error: true
@@ -74,32 +74,32 @@ const IntelligentChatbot = () => {
     }
   };
   
-  // Funciu00f3n para generar respuestas simuladas basadas en palabras clave
+  // Función para generar respuestas simuladas basadas en palabras clave
   const respuestaSimulada = (pregunta) => {
     const preguntaLower = pregunta.toLowerCase();
     
     if (preguntaLower.includes('penal') || preguntaLower.includes('delito')) {
-      return "En casos de derecho penal, es crucial contar con representaciu00f3n legal desde el inicio del proceso. El Abogado Wilson Ipiales puede asistirle con su amplia experiencia en defensa penal, asegurando que sus derechos sean respetados durante todo el procedimiento. u00bfDesea programar una consulta para analizar su caso especu00edfico?";
+      return "En casos de derecho penal, es crucial contar con representación legal desde el inicio del proceso. El Abogado Wilson Ipiales puede asistirle con su amplia experiencia en defensa penal, asegurando que sus derechos sean respetados durante todo el procedimiento. ¿Desea programar una consulta para analizar su caso específico?";
     } 
     
     if (preguntaLower.includes('civil') || preguntaLower.includes('contrato') || preguntaLower.includes('demanda')) {
-      return "Para asuntos de derecho civil como contratos, obligaciones o demandas, el Abogado Wilson Ipiales ofrece asesoru00eda completa para proteger sus intereses. Cada caso civil requiere un anu00e1lisis detallado de documentos y circunstancias. Le recomendamos agendar una consulta personal donde podremos evaluar su situaciu00f3n particular y ofrecerle las mejores estrategias legales.";
+      return "Para asuntos de derecho civil como contratos, obligaciones o demandas, el Abogado Wilson Ipiales ofrece asesoría completa para proteger sus intereses. Cada caso civil requiere un análisis detallado de documentos y circunstancias. Le recomendamos agendar una consulta personal donde podremos evaluar su situación particular y ofrecerle las mejores estrategias legales.";
     }
     
-    if (preguntaLower.includes('tru00e1nsito') || preguntaLower.includes('accidente') || preguntaLower.includes('multa')) {
-      return "En casos de tru00e1nsito, ya sea por accidentes, multas o impugnaciones, es importante actuar ru00e1pidamente para preservar evidencia y derechos. El Abogado Wilson Ipiales tiene amplia experiencia en la Ley Orgu00e1nica de Transporte Terrestre y puede representarlo efectivamente. Para una evaluaciu00f3n completa de su caso, le sugerimos contactarnos para una cita personal.";
+    if (preguntaLower.includes('tránsito') || preguntaLower.includes('accidente') || preguntaLower.includes('multa')) {
+      return "En asuntos de tránsito, el Abogado Wilson Ipiales puede ayudarle con impugnaciones de multas, defensa en accidentes de tránsito o procesos administrativos ante la ANT. Estos casos requieren actuar con rapidez para preservar evidencia y presentar los recursos dentro de los plazos legales. ¿Le gustaría programar una consulta para discutir su caso?";
     }
     
-    if (preguntaLower.includes('costo') || preguntaLower.includes('precio') || preguntaLower.includes('honorarios')) {
-      return "Los honorarios profesionales varu00edan segu00fan la complejidad del caso, el tiempo requerido y el tipo de servicio legal. El Abogado Wilson Ipiales ofrece una primera consulta informativa a un costo accesible donde podru00e1 conocer mu00e1s detalles. Para casos especiales, tambiu00e9n contamos con planes de pago flexibles. u00bfDesearu00eda agendar esta consulta inicial?";
+    if (preguntaLower.includes('precio') || preguntaLower.includes('costo') || preguntaLower.includes('cuánto')) {
+      return "Las tarifas profesionales del Abogado Wilson Ipiales varían según el tipo y complejidad del caso. Ofrecemos una primera consulta gratuita para evaluar su situación y proporcionarle un presupuesto transparente. Puede programar esta consulta inicial a través de nuestro sitio web o contactándonos directamente por WhatsApp.";
     }
     
-    if (preguntaLower.includes('cita') || preguntaLower.includes('consulta') || preguntaLower.includes('turno')) {
-      return "Para agendar una consulta con el Abogado Wilson Ipiales, puede utilizar nuestro sistema de citas en lu00ednea en la secciu00f3n 'Agendar Cita' de este sitio web, contactarnos por WhatsApp al +593988835269, o llamar directamente a nuestras oficinas. Se recomienda mencionar brevemente el tipo de caso para una mejor preparaciu00f3n de su consulta. u00bfEn quu00e9 horario le seru00eda mu00e1s conveniente?";
+    if (preguntaLower.includes('horario') || preguntaLower.includes('disponible') || preguntaLower.includes('oficina')) {
+      return "El horario de atención es de lunes a viernes de 8:00 a 18:00. Las consultas se realizan previa cita en nuestra oficina ubicada en Juan José Flores 4-73 y Vicente Rocafuerte, Ibarra, Ecuador. También ofrecemos consultas virtuales para su comodidad. ¿Desea agendar una cita?";
     }
     
-    // Respuesta genu00e9rica si no coincide con ninguna categoru00eda
-    return "Gracias por su consulta. El Abogado Wilson Alexander Ipiales Guerru00f3n ofrece servicios legales especializados en derecho penal, civil, tru00e1nsito y otras u00e1reas del derecho ecuatoriano. Para recibir asesoru00eda personalizada sobre su caso especu00edfico, le recomendamos agendar una consulta donde podremos analizar en detalle su situaciu00f3n y ofrecerle las mejores opciones legales. u00bfHay algu00fan u00e1rea legal especu00edfica sobre la que tenga dudas?";
+    // Mensaje predeterminado
+    return "¡Hola! Soy el asistente virtual del Abogado Wilson Ipiales. Puedo ayudarle con información sobre nuestros servicios legales en derecho penal, civil, tránsito y otras áreas. Para recibir asesoría legal personalizada sobre su caso específico, le recomendamos agendar una consulta con el abogado. ¿En qué puedo ayudarle hoy?";
   };
   
   const toggleChat = () => {
@@ -110,7 +110,7 @@ const IntelligentChatbot = () => {
       setMessages([
         {
           id: Date.now(),
-          text: "u00a1Hola! Soy el asistente virtual del Abogado Wilson Ipiales. u00bfEn quu00e9 puedo ayudarle hoy?",
+          text: "¡Hola! Soy el asistente virtual del Abogado Wilson Ipiales. ¿En qué puedo ayudarle hoy?",
           sender: 'bot',
           timestamp: new Date().toISOString()
         }
@@ -215,7 +215,7 @@ const IntelligentChatbot = () => {
               </button>
             </form>
             <p className="text-xs text-gray-500 mt-1">
-              {user ? 'Consulta almacenada en su perfil' : 'Inicie sesiu00f3n para guardar su historial'}
+              {user ? 'Consulta almacenada en su perfil' : 'Inicie sesión para guardar su historial'}
             </p>
           </div>
         </motion.div>

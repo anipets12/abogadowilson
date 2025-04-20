@@ -1,291 +1,252 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authService } from '../services/apiService';
+import { authService } from '../services/supabaseService';
 import { toast } from 'react-hot-toast';
+import coursesService from '../services/coursesService';
+import { useNavigate } from 'react-router-dom';
 
-// Crear el contexto
+// Crear el contexto de autenticación
 const AuthContext = createContext();
 
-// Hook personalizado para usar el contexto
+// Hook personalizado para usar el contexto de autenticación
 export const useAuth = () => useContext(AuthContext);
 
-// Proveedor del contexto
+// Proveedor del contexto de autenticación
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [userCourses, setUserCourses] = useState([]);
+  const [userPurchases, setUserPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
-  const [error, setError] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
-  const [tokenBalance, setTokenBalance] = useState(0);
-  const [tokenExpiry, setTokenExpiry] = useState(null);
+  const navigate = useNavigate();
 
-  // Verificar autenticación al cargar
+  // Verificar el estado de autenticación al cargar
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkSession = async () => {
+      setLoading(true);
       try {
-        // Verificar si hay un token en localStorage
-        const token = localStorage.getItem('authToken');
-        
-        if (!token) {
-          setLoading(false);
-          setAuthReady(true);
-          return;
-        }
-        
-        // Verificar si el token es válido obteniendo datos del usuario
-        const { data, error } = await authService.getUser();
-        
-        if (error) {
-          console.error('Error al verificar autenticación:', error);
-          // Si hay error, probablemente el token no es válido
-          localStorage.removeItem('authToken');
-          setUser(null);
-          setIsAdmin(false);
-          setIsPremium(false);
-          setTokenBalance(0);
-        } else if (data && data.user) {
-          console.log('Usuario autenticado:', data.user);
-          setUser(data.user);
+        const { session, error } = await authService.getSession();
+        if (session) {
+          setUser(session.user);
           
-          // Establecer roles y estado
-          setIsAdmin(data.user.role === 'admin');
-          setIsPremium(data.user.isPremium || false);
-          
-          // Obtener saldo de tokens si el usuario está autenticado
-          fetchTokenBalance();
+          // Cargar cursos del usuario
+          if (session.user.id) {
+            fetchUserCourses(session.user.id);
+            fetchUserPurchases(session.user.id);
+          }
+        } else if (error) {
+          console.error('Error al verificar sesión:', error);
         }
-      } catch (err) {
-        console.error('Error al verificar autenticación:', err);
-        setError(err.message);
+      } catch (error) {
+        console.error('Error al comprobar sesión:', error);
       } finally {
-        setLoading(false);
         setAuthReady(true);
+        setLoading(false);
       }
     };
 
-    checkAuth();
+    checkSession();
   }, []);
+  
+  // Cargar cursos del usuario
+  const fetchUserCourses = async (userId) => {
+    try {
+      const { courses, error } = await coursesService.getUserCourses(userId);
+      if (error) throw error;
+      setUserCourses(courses || []);
+    } catch (error) {
+      console.error('Error al cargar cursos del usuario:', error);
+      toast.error('No pudimos cargar tus cursos. Intenta de nuevo más tarde.', {
+        id: 'courses-error'
+      });
+    }
+  };
+  
+  // Cargar historial de compras del usuario
+  const fetchUserPurchases = async (userId) => {
+    try {
+      const { purchases, error } = await coursesService.getUserPurchases(userId);
+      if (error) throw error;
+      setUserPurchases(purchases || []);
+    } catch (error) {
+      console.error('Error al cargar historial de compras:', error);
+    }
+  };
 
-  // Función para iniciar sesión
+  // Iniciar sesión
   const login = async (email, password) => {
     setLoading(true);
     try {
-      const { data, error } = await authService.login(email, password);
+      const { user: authUser, error } = await authService.login(email, password);
+      if (error) throw error;
       
-      if (error) {
-        throw new Error(error.message || 'Error al iniciar sesión');
-      }
+      setUser(authUser);
       
-      setUser(data.user);
+      // Cargar cursos y compras del usuario
+      fetchUserCourses(authUser.id);
+      fetchUserPurchases(authUser.id);
       
-      // Establecer roles y estado
-      setIsAdmin(data.user.role === 'admin');
-      setIsPremium(data.user.isPremium || false);
-      
-      // Obtener saldo de tokens
-      fetchTokenBalance();
-      
-      toast.success('Sesión iniciada correctamente');
-      return { success: true, data };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
+      toast.success('¡Inicio de sesión exitoso!');
+      return { user: authUser, error: null };
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error);
+      toast.error(error.message || 'Error al iniciar sesión');
+      return { user: null, error };
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para registrar un nuevo usuario
-  const register = async (userData) => {
+  // Registrar usuario
+  const register = async (email, password, userData) => {
     setLoading(true);
     try {
-      const { data, error } = await authService.register(userData);
+      const { user: authUser, error } = await authService.register(email, password, userData);
+      if (error) throw error;
       
-      if (error) {
-        throw new Error(error.message || 'Error al registrar usuario');
-      }
-      
-      if (data.user) {
-        setUser(data.user);
-        
-        // Establecer roles y estado
-        setIsAdmin(data.user.role === 'admin');
-        setIsPremium(data.user.isPremium || false);
-        
-        // Obtener saldo de tokens iniciales (generalmente 0 para nuevos usuarios)
-        fetchTokenBalance();
-        
-        toast.success('Registro exitoso. ¡Bienvenido!');
-      }
-      
-      return { success: true, data };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
+      setUser(authUser);
+      toast.success('¡Registro exitoso!');
+      return { user: authUser, error: null };
+    } catch (error) {
+      console.error('Error al registrar usuario:', error);
+      toast.error(error.message || 'Error al registrar usuario');
+      return { user: null, error };
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para cerrar sesión
+  // Iniciar sesión con Google
+  const loginWithGoogle = async () => {
+    try {
+      await authService.signInWithGoogle();
+      return { error: null };
+    } catch (error) {
+      console.error('Error al iniciar sesión con Google:', error);
+      toast.error(error.message || 'Error al iniciar sesión con Google');
+      return { error };
+    }
+  };
+
+  // Iniciar sesión con Facebook
+  const loginWithFacebook = async () => {
+    try {
+      await authService.signInWithFacebook();
+      return { error: null };
+    } catch (error) {
+      console.error('Error al iniciar sesión con Facebook:', error);
+      toast.error(error.message || 'Error al iniciar sesión con Facebook');
+      return { error };
+    }
+  };
+
+  // Cerrar sesión
   const logout = async () => {
-    setLoading(true);
     try {
-      const { error } = await authService.signOut();
-      
-      if (error) {
-        throw new Error(error.message || 'Error al cerrar sesión');
-      }
-      
+      await authService.signOut();
       setUser(null);
-      setIsAdmin(false);
-      setIsPremium(false);
-      setTokenBalance(0);
-      setTokenExpiry(null);
-      
+      setUserCourses([]);
+      setUserPurchases([]);
+      navigate('/');
       toast.success('Sesión cerrada correctamente');
-      return { success: true };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      toast.error('Error al cerrar sesión');
     }
   };
 
-  // Obtener el saldo de tokens del usuario
-  const fetchTokenBalance = async () => {
+  // Recuperar contraseña
+  const resetPassword = async (email) => {
     try {
-      const { data, error } = await authService.getTokenBalance();
+      const { data, error } = await authService.supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
       
-      if (error) {
-        console.error('Error al obtener saldo de tokens:', error);
-        return;
-      }
+      if (error) throw error;
       
-      if (data) {
-        setTokenBalance(data.balance || 0);
-        setTokenExpiry(data.expiry || null);
-      }
-    } catch (err) {
-      console.error('Error al obtener saldo de tokens:', err);
+      toast.success('Revisa tu correo para restablecer tu contraseña');
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Error al solicitar recuperación de contraseña:', error);
+      toast.error(error.message || 'Error al solicitar recuperación de contraseña');
+      return { success: false, error };
     }
   };
   
-  // Función para actualizar el usuario actual
-  const updateUser = (userData) => {
-    setUser(prevUser => ({
-      ...prevUser,
-      ...userData
-    }));
+  // Actualizar perfil del usuario
+  const updateProfile = async (userId, userData) => {
+    try {
+      const { data, error } = await authService.updateUser(userData);
+      if (error) throw error;
+      
+      // Actualizar usuario en el estado
+      setUser(current => ({
+        ...current,
+        ...userData
+      }));
+      
+      toast.success('Perfil actualizado correctamente');
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error);
+      toast.error(error.message || 'Error al actualizar perfil');
+      return { success: false, error };
+    }
+  };
+  
+  // Comprobar si el usuario tiene un curso específico
+  const hasUserPurchasedCourse = (courseId) => {
+    return userCourses.some(course => course.course_id === courseId);
+  };
+  
+  // Marcar una lección como completada
+  const markLessonAsCompleted = async (courseId, lessonId) => {
+    if (!user) return { success: false, error: { message: 'Usuario no autenticado' } };
     
-    // Actualizar roles si han cambiado
-    if (userData.role) {
-      setIsAdmin(userData.role === 'admin');
-    }
-    
-    if (userData.isPremium !== undefined) {
-      setIsPremium(userData.isPremium);
-    }
-  };
-  
-  // Función para actualizar el saldo de tokens
-  const updateTokenBalance = (newBalance, newExpiry = null) => {
-    setTokenBalance(newBalance);
-    if (newExpiry) {
-      setTokenExpiry(newExpiry);
-    }
-  };
-  
-  // Verificar si el usuario tiene tokens suficientes
-  const hasEnoughTokens = (requiredAmount) => {
-    return tokenBalance >= requiredAmount;
-  };
-  
-  // Consumir tokens para una acción
-  const consumeTokens = async (amount, actionType) => {
     try {
-      const { data, error } = await authService.useTokens(amount, actionType);
+      const { success, error } = await coursesService.markLessonAsCompleted(
+        user.id,
+        courseId,
+        lessonId
+      );
       
-      if (error) {
-        throw new Error(error.message || 'Error al utilizar tokens');
-      }
+      if (error) throw error;
       
-      if (data) {
-        setTokenBalance(data.newBalance);
-        return { success: true, newBalance: data.newBalance };
-      }
-    } catch (err) {
-      console.error(`Error al consumir ${amount} tokens:`, err);
-      return { success: false, error: err.message };
+      // Actualizar la lista de cursos del usuario
+      fetchUserCourses(user.id);
+      
+      return { success, error: null };
+    } catch (error) {
+      console.error('Error al marcar lección como completada:', error);
+      return { success: false, error };
     }
   };
   
-  // Función para solicitar contraseña olvidada
-  const requestPasswordReset = async (email) => {
-    setLoading(true);
-    try {
-      const { data, error } = await authService.requestPasswordReset(email);
-      
-      if (error) {
-        throw new Error(error.message || 'Error al solicitar restablecimiento de contraseña');
-      }
-      
-      toast.success('Se ha enviado un correo con instrucciones para restablecer tu contraseña');
-      return { success: true, data };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Función para restablecer contraseña con token
-  const resetPassword = async (token, newPassword) => {
-    setLoading(true);
-    try {
-      const { data, error } = await authService.resetPassword(token, newPassword);
-      
-      if (error) {
-        throw new Error(error.message || 'Error al restablecer contraseña');
-      }
-      
-      toast.success('Contraseña restablecida correctamente. Ya puedes iniciar sesión.');
-      return { success: true, data };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Verificar si el usuario es administrador
+  const isAdmin = user && user.email && (
+    user.email === 'alexip2@hotmail.com' || 
+    user.email === 'Wifirmalegal@gmail.com'
+  );
 
-  // Valores a proporcionar en el contexto
+  // Valores del contexto
   const value = {
     user,
-    setUser,
+    userCourses,
+    userPurchases,
     loading,
-    error,
     authReady,
     isAdmin,
-    isPremium,
-    tokenBalance,
-    tokenExpiry,
     login,
     register,
     logout,
-    updateUser,
-    updateTokenBalance,
-    hasEnoughTokens,
-    consumeTokens,
-    requestPasswordReset,
-    resetPassword
+    resetPassword,
+    loginWithGoogle,
+    loginWithFacebook,
+    updateProfile,
+    hasUserPurchasedCourse,
+    markLessonAsCompleted,
+    refreshUserCourses: () => user && fetchUserCourses(user.id),
+    refreshUserPurchases: () => user && fetchUserPurchases(user.id)
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

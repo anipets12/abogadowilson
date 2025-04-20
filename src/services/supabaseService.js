@@ -46,7 +46,32 @@ const getSupabaseOptions = () => {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      storageKey: 'abogadowilson_auth_token',
+      storage: {
+        getItem: (key) => {
+          try {
+            return localStorage.getItem(key);
+          } catch (error) {
+            console.warn('Error al acceder a localStorage:', error);
+            return null;
+          }
+        },
+        setItem: (key, value) => {
+          try {
+            localStorage.setItem(key, value);
+          } catch (error) {
+            console.warn('Error al escribir en localStorage:', error);
+          }
+        },
+        removeItem: (key) => {
+          try {
+            localStorage.removeItem(key);
+          } catch (error) {
+            console.warn('Error al eliminar de localStorage:', error);
+          }
+        }
+      }
     }
   };
   
@@ -121,15 +146,18 @@ export const supabase = createSupabaseClient();
 export const testSupabaseConnection = async () => {
   try {
     // Intentar una operación simple para probar la conexión
-    const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+    const { data, error } = await supabase.from('profiles').select('count');
     
-    if (error) throw error;
-    return { connected: true, error: null };
+    if (error) {
+      console.error('Error en prueba de conexión:', error.message);
+      throw error;
+    }
+    
+    console.log('Conexión a Supabase correcta:', data);
+    return true;
   } catch (error) {
-    console.error('Error al probar conexión con Supabase:', error);
-    
-    // Si hay un error de CORS, intentar utilizar el proxy
-    return { connected: false, error };
+    console.error('Error de conexión con Supabase:', error);
+    return false;
   }
 };
 
@@ -256,20 +284,72 @@ export const authService = {
   // Registrar nuevo usuario
   async register(email, password, userData) {
     try {
+      console.log('Registrando usuario...');
+      
+      // Verificar primero si el usuario ya existe
+      const { data: existingUsers } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email);
+        
+      if (existingUsers && existingUsers.length > 0) {
+        throw new Error('Este correo electrónico ya está registrado. Por favor inicia sesión.');
+      }
+      
+      // Usar directamente la API de Auth para registrar
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: userData || {}
+          data: {
+            full_name: userData?.name || '',
+            phone: userData?.phone || '',
+            referral_code: userData?.referralCode || ''
+          }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error al registrar usuario:', error);
+        if (error.message.includes('User already registered')) {
+          throw new Error('Este correo electrónico ya está registrado. Por favor inicia sesión.');
+        }
+        throw error;
+      }
       
-      return { user: data.user, error: null };
+      console.log('Registro exitoso:', data);
+      
+      // Crear perfil con 3 tokens iniciales para el usuario
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: data.user.id,
+              email: email,
+              full_name: userData?.name || '',
+              phone: userData?.phone || '',
+              tokens: 3,
+              referral_code: userData?.referralCode || '',
+              created_at: new Date().toISOString()
+            }
+          ]);
+          
+        if (profileError) {
+          console.warn('Error al crear perfil de usuario:', profileError);
+          // No fallar el registro si solo falla la creación del perfil
+        }
+      }
+      
+      // Devolver información del usuario registrado
+      return { 
+        data: data, 
+        error: null,
+        simulated: !data.user // Indicar si es una simulación
+      };
     } catch (error) {
-      console.error('Error al registrar usuario:', error);
-      return { user: null, error };
+      console.error('Error en el servicio de registro:', error);
+      return { data: null, error };
     }
   },
   

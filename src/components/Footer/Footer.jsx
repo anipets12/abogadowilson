@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaWhatsapp } from 'react-icons/fa';
+import { socialMedia, contactInfo } from '../../config/appConfig';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -97,17 +98,17 @@ const Footer = () => {
               </button>
             </form>
             <div className="flex mt-4 space-x-3">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-white hover:text-primary-500 transition-colors">
+              <a href={socialMedia.facebook.pagina} target="_blank" rel="noopener noreferrer" className="text-white hover:text-primary-500 transition-colors">
                 <FaFacebook className="text-xl" />
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-white hover:text-primary-500 transition-colors">
+              <a href={socialMedia.twitter.profile} target="_blank" rel="noopener noreferrer" className="text-white hover:text-primary-500 transition-colors">
                 <FaTwitter className="text-xl" />
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-white hover:text-primary-500 transition-colors">
+              <a href="https://www.instagram.com/wilsonipialesa/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-primary-500 transition-colors">
                 <FaInstagram className="text-xl" />
               </a>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-white hover:text-primary-500 transition-colors">
-                <FaLinkedin className="text-xl" />
+              <a href={socialMedia.whatsapp.api} target="_blank" rel="noopener noreferrer" className="text-white hover:text-primary-500 transition-colors">
+                <FaWhatsapp className="text-xl" />
               </a>
             </div>
           </div>

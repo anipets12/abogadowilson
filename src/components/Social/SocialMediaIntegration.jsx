@@ -3,34 +3,35 @@ import { motion } from 'framer-motion';
 import { FaFacebook, FaTwitter, FaInstagram, FaWhatsapp, FaLinkedin, FaTiktok, FaUsers, FaShareAlt } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { WHATSAPP_CONFIG } from '../../services/whatsappService';
+import { socialMedia, contactInfo } from '../../config/appConfig';
 
 const SocialMediaIntegration = ({ variant = 'default' }) => {
-  // Configuración de redes sociales del abogado
-  const socialMedia = {
+  // Configuración de redes sociales del abogado (importado desde appConfig.js)
+  const socialLinks = {
     facebook: {
-      page: 'https://facebook.com/abogadowilsonipiales',
+      page: socialMedia.facebook.pagina,
       groups: [
-        { name: 'Grupo Legal Ecuador', url: 'https://facebook.com/groups/legalecuador' },
-        { name: 'Asesoría Jurídica Ibarra', url: 'https://facebook.com/groups/asesoriajuridicaibarra' }
+        { name: 'Derecho Ecuador', url: socialMedia.facebook.groups.derechoEcuador },
+        { name: 'Abogados Ecuador', url: socialMedia.facebook.groups.abogadosEcuador }
       ],
       appId: '1951562888920654'
     },
-    twitter: 'https://twitter.com/abogadowilson',
-    instagram: 'https://instagram.com/abogadowilson',
-    linkedin: 'https://linkedin.com/in/wilson-alexander-ipiales-guerron',
-    tiktok: 'https://tiktok.com/@abogadowilson',
-    whatsapp: WHATSAPP_CONFIG.officialPhone || '+593988835269'
+    twitter: socialMedia.twitter.profile,
+    instagram: 'https://www.instagram.com/wilsonipialesa/',
+    whatsapp: socialMedia.whatsapp.api,
+    phone: contactInfo.phones.primary,
+    linkedin: 'https://www.linkedin.com/in/wilson-ipiales-9b7a72291/',
+    tiktok: 'https://www.tiktok.com/@wilsonipialesabogado'
   };
-  
+
   // Función para compartir en redes sociales
   const shareContent = (platform) => {
     const pageUrl = window.location.href;
     const title = 'Abogado Wilson Ipiales | Servicios Legales en Ecuador';
     const description = 'Servicios legales profesionales con el Abg. Wilson Alexander Ipiales Guerrón, especialista en derecho civil, penal y de tránsito.';
-    
+
     let shareUrl = '';
-    
+
     switch (platform) {
       case 'facebook':
         shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`;
@@ -47,26 +48,26 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
       default:
         shareUrl = '';
     }
-    
+
     if (shareUrl) {
       window.open(shareUrl, '_blank', 'width=600,height=400');
       toast.success(`Contenido compartido en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`);
     }
   };
-  
+
   // Función para abrir chat de WhatsApp
   const openWhatsappChat = () => {
     const message = 'Hola, me gustaría obtener más información sobre sus servicios legales.';
-    const whatsappUrl = `https://wa.me/${socialMedia.whatsapp.replace('+', '')}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    // Usar directamente la URL configurada en appConfig
+    window.open(socialMedia.whatsapp.api, '_blank');
   };
-  
+
   // Renderizar barra de redes sociales compacta para header o footer
   if (variant === 'compact') {
     return (
       <div className="flex space-x-3">
         <a 
-          href={socialMedia.facebook.page} 
+          href={socialLinks.facebook.page} 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-gray-600 hover:text-blue-600 transition duration-300"
@@ -75,7 +76,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
           <FaFacebook size={18} />
         </a>
         <a 
-          href={socialMedia.twitter} 
+          href={socialLinks.twitter} 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-gray-600 hover:text-blue-400 transition duration-300"
@@ -84,7 +85,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
           <FaTwitter size={18} />
         </a>
         <a 
-          href={socialMedia.instagram} 
+          href={socialLinks.instagram} 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-gray-600 hover:text-purple-600 transition duration-300"
@@ -102,7 +103,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
       </div>
     );
   }
-  
+
   // Renderizar barra flotante para compartir
   if (variant === 'floating') {
     return (
@@ -143,7 +144,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
       </motion.div>
     );
   }
-  
+
   // Renderizar sección completa de redes sociales (default)
   return (
     <div className="bg-white py-12 px-4 sm:px-6 lg:px-8 rounded-lg shadow-md">
@@ -154,7 +155,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
             Siga nuestras redes sociales para estar al día con información legal relevante y servicios disponibles.
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           {/* Facebook */}
           <div className="bg-gray-50 p-6 rounded-xl shadow-sm hover:shadow-md transition duration-300">
@@ -164,7 +165,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
             </div>
             <div className="space-y-3">
               <a 
-                href={socialMedia.facebook.page}
+                href={socialLinks.facebook.page}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center text-blue-700 hover:text-blue-900"
@@ -174,13 +175,13 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
               </a>
-              
+
               <div className="pt-2">
                 <p className="text-sm text-gray-600 mb-2 flex items-center">
                   <FaUsers className="mr-1" /> Grupos comunitarios:
                 </p>
                 <ul className="space-y-1">
-                  {socialMedia.facebook.groups.map((group, index) => (
+                  {socialLinks.facebook.groups.map((group, index) => (
                     <li key={index}>
                       <a 
                         href={group.url}
@@ -199,7 +200,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
               </div>
             </div>
           </div>
-          
+
           {/* WhatsApp */}
           <div className="bg-gray-50 p-6 rounded-xl shadow-sm hover:shadow-md transition duration-300">
             <div className="flex items-center mb-4">
@@ -216,9 +217,9 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
               <FaWhatsapp className="mr-2" />
               Iniciar chat
             </button>
-            <p className="mt-2 text-sm text-gray-500 text-center">{socialMedia.whatsapp}</p>
+            <p className="mt-2 text-sm text-gray-500 text-center">{socialLinks.whatsapp}</p>
           </div>
-          
+
           {/* Otras redes */}
           <div className="bg-gray-50 p-6 rounded-xl shadow-sm hover:shadow-md transition duration-300">
             <div className="flex items-center mb-4">
@@ -227,7 +228,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <a 
-                href={socialMedia.twitter}
+                href={socialLinks.twitter}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition duration-300"
@@ -236,7 +237,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
                 <span className="text-sm text-gray-700">Twitter</span>
               </a>
               <a 
-                href={socialMedia.instagram}
+                href={socialLinks.instagram}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center p-3 bg-pink-50 rounded-lg hover:bg-pink-100 transition duration-300"
@@ -245,7 +246,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
                 <span className="text-sm text-gray-700">Instagram</span>
               </a>
               <a 
-                href={socialMedia.linkedin}
+                href={socialLinks.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition duration-300"
@@ -254,7 +255,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
                 <span className="text-sm text-gray-700">LinkedIn</span>
               </a>
               <a 
-                href={socialMedia.tiktok}
+                href={socialLinks.tiktok}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center p-3 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-300"
@@ -265,7 +266,7 @@ const SocialMediaIntegration = ({ variant = 'default' }) => {
             </div>
           </div>
         </div>
-        
+
         {/* Invitación a compartir */}
         <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-blue-100">
           <div className="flex flex-col md:flex-row items-center justify-between">

@@ -28,12 +28,23 @@ import TopicDetail from './components/Forum/TopicDetail';
 import DashboardPage from './components/Dashboard/DashboardPage';
 import ClientDashboard from './components/Dashboard/ClientDashboard';
 import AppointmentCalendar from './components/Appointment/AppointmentCalendar';
+import AppointmentBooking from './components/Appointments/AppointmentBooking';
 import PaymentForm from './components/Payment/PaymentForm';
 import CheckoutForm from './components/Payment/CheckoutForm';
-import ThankYouPage from './components/Payment/ThankYouPage';
 import ProtectedDownload from './components/ProtectedDownload';
 import WhatsAppChat from './components/Chat/WhatsAppChat';
 import AuthCallback from './components/Auth/AuthCallback';
+import UserCourses from './components/Dashboard/UserCourses';
+import PurchaseHistory from './components/Dashboard/PurchaseHistory';
+
+// Nuevos componentes y páginas
+import CheckoutPage from './pages/CheckoutPage';
+import BankTransferPage from './pages/BankTransferPage';
+import TokensPage from './pages/TokensPage';
+import ThankYouPage from './pages/ThankYouPage';
+import CoursesPage from './pages/CoursesPage';
+import CourseDetailPage from './pages/CourseDetailPage';
+import CoursePlayerPage from './pages/CoursePlayerPage';
 
 // Páginas principales
 const HomePage = lazy(() => import('./components/Home/HomePage'));
@@ -138,6 +149,8 @@ const NotFoundPage = lazy(() => import('./components/Common/NotFoundPage'));
 
 // Importamos el contexto de autenticación
 import { AuthProvider, useAuth } from './context/AuthContext';
+// Importamos el contexto del carrito
+import { CartProvider } from './context/CartContext';
 
 // Determinar la URL base según el entorno (similar a apiService.js)
 const getBaseUrl = () => {
@@ -152,6 +165,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasConnectionError, setHasConnectionError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [apiConnectionStatus, setApiConnectionStatus] = useState(null);
 
   // Verificar la API al iniciar
   useEffect(() => {
@@ -215,34 +229,40 @@ function App() {
 
   return (
     <AuthProvider>
-      <Router>
-        <Toaster 
-          position="top-center" 
-          reverseOrder={false}
-          toastOptions={{
-            duration: 5000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
-              duration: 3000,
-              iconTheme: {
-                primary: '#22c55e',
-                secondary: 'white',
+      <CartProvider>
+        <Router>
+          <Toaster 
+            position="top-center" 
+            reverseOrder={false}
+            toastOptions={{
+              duration: 5000,
+              style: {
+                background: '#363636',
+                color: '#fff',
               },
-            },
-            error: {
-              duration: 4000,
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: 'white',
+              success: {
+                duration: 3000,
+                iconTheme: {
+                  primary: '#22c55e',
+                  secondary: 'white',
+                },
               },
-            },
-          }}
-        />
-        <AppContent />
-      </Router>
+              error: {
+                duration: 4000,
+                iconTheme: {
+                  primary: '#ef4444',
+                  secondary: 'white',
+                },
+              },
+            }}
+          />
+          <AppContent 
+            loading={isLoading} 
+            apiConnectionStatus={apiReady}
+            verifyApiConnection={() => verifyApiConnection()}
+          />
+        </Router>
+      </CartProvider>
     </AuthProvider>
   );
 }
@@ -257,96 +277,159 @@ function LoadingIndicator() {
 }
 
 // Componente AppContent separado para usar el contexto de autenticación
-function AppContent() {
-  const { user, loading, authReady, isAdmin } = useAuth();
+function AppContent({ loading, apiConnectionStatus, verifyApiConnection }) {
+  const { user, loading: authLoading, authReady, isAdmin } = useAuth();
+  const location = useLocation();
   
   if (loading && !authReady) {
     return <LoadingIndicator />;
   }
-
+  
+  // Si hay un error de conexión con la API, mostrar mensaje
+  if (apiConnectionStatus === false) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <div className="flex-grow flex items-center justify-center">
+          <div className="text-center p-8 max-w-md">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">
+              Error de Conexión
+            </h1>
+            <p className="text-gray-700 mb-6">
+              No se ha podido conectar con el servidor. Por favor, verifica tu conexión a internet o inténtalo más tarde.
+            </p>
+            <button
+              onClick={verifyApiConnection}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
+      
       <main className="flex-grow">
         <Suspense fallback={<LoadingIndicator />}>
           <Routes>
-            {/* Página de inicio */}
+            {/* Páginas Principales */}
             <Route path="/" element={<HomePage />} />
-          
-          {/* Servicios */}
-          <Route path="/servicios/penal" element={<Penal />} />
-          <Route path="/servicios/civil" element={<Civil />} />
-          <Route path="/servicios/comercial" element={<Comercial />} />
-          <Route path="/servicios/transito" element={<Transito />} />
-          <Route path="/servicios/aduanas" element={<Aduanas />} />
-          
-          {/* Consultas */}
-          <Route path="/consultas/penales" element={<ConsultasPenales />} />
-          <Route path="/consultas/transito" element={<ConsultasTransito />} />
-          <Route path="/consultas/civiles" element={<ConsultasCiviles />} />
-          
-          {/* Otras rutas */}
-          <Route path="/contacto" element={<ContactPage />} />
-          <Route path="/chat" element={<LiveChat />} />
-          <Route path="/whatsapp" element={<WhatsAppChat />} />
-          <Route path="/noticias" element={<JudicialNews />} />
-          <Route path="/afiliados" element={<Afiliados />} />
-          <Route path="/referidos" element={<Referidos />} />
-          <Route path="/consulta" element={<ConsultationHub />} />
-          <Route path="/ebooks" element={<Ebooks />} />
-          <Route path="/politica-privacidad" element={<PrivacyPolicy />} />
-          <Route path="/terminos-condiciones" element={<TerminosCondiciones />} />
-          <Route path="/seguridad" element={<Seguridad />} />
-          
-          {/* Foro */}
-          <Route path="/foro" element={<Forum />} />
-          <Route path="/foro/tema/:id" element={<TopicDetail />} />
-          
-          {/* Rutas de autenticación */}
-          <Route path="/registro" element={
-            user ? <Navigate to="/dashboard" /> : <Register />
-          } />
-          <Route path="/login" element={
-            user ? <Navigate to="/dashboard" /> : <Login />
-          } />
-          <Route path="/recuperar-password" element={
-            user ? <Navigate to="/dashboard" /> : <ForgotPassword />
-          } />
-          <Route path="/reset-password" element={
-            user ? <Navigate to="/dashboard" /> : <ResetPassword />
-          } />
-          {/* Callback para autenticación social */}
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          
-          {/* Rutas protegidas */}
-          <Route path="/dashboard" element={
-            <RequireAuth>
-              <DashboardPage />
-            </RequireAuth>
-          } />
-          <Route path="/cliente" element={
-            <RequireAuth>
-              <ClientDashboard />
-            </RequireAuth>
-          } />
-          <Route path="/calendario" element={
-            <RequireAuth>
-              <AppointmentCalendar />
-            </RequireAuth>
-          } />
-          <Route path="/pago" element={
-            <RequireAuth>
-              <PaymentForm />
-            </RequireAuth>
-          } />
-          <Route path="/checkout" element={
-            <RequireAuth>
-              <CheckoutForm />
-            </RequireAuth>
-          } />
-          <Route path="/gracias" element={<ThankYouPage />} />
-          <Route path="/ebooks/download/:id" element={<ProtectedDownload />} />
-          
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/servicios" element={<ServicesPage />} />
+            <Route path="/contacto" element={<ContactPage />} />
+            <Route path="/chat" element={<LiveChat />} />
+            <Route path="/whatsapp" element={<WhatsAppChat />} />
+            <Route path="/noticias" element={<JudicialNews />} />
+            <Route path="/afiliados" element={<Afiliados />} />
+            <Route path="/referidos" element={<Referidos />} />
+            <Route path="/consulta" element={<ConsultationHub />} />
+            <Route path="/ebooks" element={<Ebooks />} />
+            <Route path="/politica-privacidad" element={<PrivacyPolicy />} />
+            <Route path="/terminos-condiciones" element={<TerminosCondiciones />} />
+            <Route path="/seguridad" element={<Seguridad />} />
+            
+            {/* Foro */}
+            <Route path="/foro" element={<Forum />} />
+            <Route path="/foro/tema/:id" element={<TopicDetail />} />
+            
+            {/* Rutas de Cursos */}
+            <Route path="/cursos" element={<CoursesPage />} />
+            <Route path="/cursos/:courseId" element={<CourseDetailPage />} />
+            
+            {/* Nuevas rutas para compras, tokens y citas */}
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/gracias" element={<ThankYouPage />} />
+            <Route path="/transferencia-bancaria" element={<BankTransferPage />} />
+            <Route path="/tokens" element={<TokensPage />} />
+            <Route path="/agendar-cita" element={
+              <RequireAuth>
+                <AppointmentBooking />
+              </RequireAuth>
+            } />
+            
+            {/* Rutas de autenticación */}
+            <Route path="/auth/register" element={
+              user ? <Navigate to="/dashboard" /> : <Register />
+            } />
+            <Route path="/auth/login" element={
+              user ? <Navigate to="/dashboard" /> : <Login />
+            } />
+            <Route path="/auth/recuperar-password" element={
+              user ? <Navigate to="/dashboard" /> : <ForgotPassword />
+            } />
+            <Route path="/auth/reset-password" element={
+              user ? <Navigate to="/dashboard" /> : <ResetPassword />
+            } />
+            {/* Mantenemos compatibilidad con rutas anteriores */}
+            <Route path="/registro" element={
+              user ? <Navigate to="/dashboard" /> : <Register />
+            } />
+            <Route path="/login" element={
+              user ? <Navigate to="/dashboard" /> : <Login />
+            } />
+            <Route path="/recuperar-password" element={
+              user ? <Navigate to="/dashboard" /> : <ForgotPassword />
+            } />
+            {/* Callback para autenticación social */}
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            
+            {/* Rutas protegidas - Dashboard */}
+            <Route path="/dashboard" element={
+              <RequireAuth>
+                <DashboardPage />
+              </RequireAuth>
+            } />
+            <Route path="/dashboard/cursos" element={
+              <RequireAuth>
+                <UserCourses />
+              </RequireAuth>
+            } />
+            <Route path="/dashboard/cursos/:courseId/learn" element={
+              <RequireAuth>
+                <CoursePlayerPage />
+              </RequireAuth>
+            } />
+            <Route path="/dashboard/cursos/:courseId/learn/:lessonId" element={
+              <RequireAuth>
+                <CoursePlayerPage />
+              </RequireAuth>
+            } />
+            <Route path="/dashboard/compras" element={
+              <RequireAuth>
+                <PurchaseHistory />
+              </RequireAuth>
+            } />
+            <Route path="/dashboard/ebooks/:ebookId" element={
+              <RequireAuth>
+                <ProtectedDownload />
+              </RequireAuth>
+            } />
+            <Route path="/cliente" element={
+              <RequireAuth>
+                <ClientDashboard />
+              </RequireAuth>
+            } />
+            <Route path="/calendario" element={
+              <RequireAuth>
+                <AppointmentCalendar />
+              </RequireAuth>
+            } />
+            <Route path="/pago" element={
+              <RequireAuth>
+                <PaymentForm />
+              </RequireAuth>
+            } />
+            <Route path="/checkout-legacy" element={
+              <RequireAuth>
+                <CheckoutForm />
+              </RequireAuth>
+            } />
+            <Route path="/ebooks/download/:id" element={<ProtectedDownload />} />
+            
             {/* Ruta de fallback (404) */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

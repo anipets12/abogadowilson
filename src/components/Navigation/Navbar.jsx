@@ -2,8 +2,9 @@ import React, { Fragment, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Disclosure, Menu, Transition, Popover } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon, ChevronDownIcon, UserIcon } from '@heroicons/react/24/outline';
-import { FaUsers, FaHandshake, FaComments, FaGavel, FaBook, FaShieldAlt, FaFileContract, FaFileAlt, FaUserTie, FaWhatsapp, FaPhone, FaEnvelope, FaUserPlus, FaSignInAlt, FaLock } from 'react-icons/fa';
-import { authService, dataService } from '../../services/apiService';
+import { FaUsers, FaHandshake, FaComments, FaGavel, FaBook, FaShieldAlt, FaFileContract, FaFileAlt, FaUserTie, FaWhatsapp, FaPhone, FaEnvelope, FaUserPlus, FaSignInAlt, FaLock, FaCalendarAlt, FaCoins } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
+import CartWidget from '../Shop/CartWidget';
 
 const mainNavigation = [
   { name: 'Inicio', href: '/', current: false },
@@ -46,80 +47,43 @@ const policySubmenu = [
   { name: 'Seguridad', href: '/seguridad', current: false, icon: <FaLock className="text-gray-500" /> },
 ];
 
+// Añadir nuevo submenú para Usuario Autenticado
+const userSubmenu = [
+  { name: 'Mi Dashboard', href: '/dashboard', current: false, icon: <UserIcon className="h-5 w-5 text-blue-500" /> },
+  { name: 'Mis Citas', href: '/calendario', current: false, icon: <FaCalendarAlt className="text-green-500" /> },
+  { name: 'Mis Tokens', href: '/tokens', current: false, icon: <FaCoins className="text-yellow-500" /> },
+  { name: 'Agendar Cita', href: '/agendar-cita', current: false, icon: <FaCalendarAlt className="text-purple-500" /> },
+];
+
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
 function Navbar() {
-  const [session, setSession] = useState(null);
+  const { user } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-
-  useEffect(() => {
-    // Establecer la sesión inicial
-    const setInitialSession = async () => {
-      try {
-        // Verificar si hay un token en localStorage
-        const token = localStorage.getItem('authToken');
-        if (token) {
-          const { user } = await authService.getCurrentUser();
-          setSession({ user });
-        } else {
-          setSession(null);
-        }
-      } catch (error) {
-        console.error('Error al obtener la sesión inicial:', error);
-        setSession(null);
-      }
-    };
-    setInitialSession();
-
-    // Simplificamos la lógica de escucha de cambios de autenticación
-    const handleAuthChange = () => {
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        authService.getCurrentUser().then(({ user }) => {
-          if (user) setSession({ user });
-        });
-      } else {
-        setSession(null);
-      }
-    };
-
-    // Comprobamos cada 5 segundos si el token cambió
-    const interval = setInterval(handleAuthChange, 5000);
-    
-    // Limpiar el intervalo al desmontar
-    return () => clearInterval(interval);
-  }, []);
-
-  const updatedNavigation = mainNavigation.map(item => ({
-    ...item,
-    current: location.pathname === item.href || 
-             (item.href !== '#' && item.href !== '/' && location.pathname.includes(item.href))
-  }));
-
-  // Añadir entrada para Políticas y Seguridad
-  const allNavigation = [...updatedNavigation, { 
-    name: 'Políticas', 
-    href: '#', 
-    current: location.pathname === '/privacidad' || location.pathname === '/terminos' || location.pathname === '/seguridad', 
-    hasSubmenu: true, 
-    icon: <FaShieldAlt className="text-blue-600" /> 
-  }];
+  
+  // Determinar si la ruta actual está activa
+  const isActive = (path) => {
+    if (path === '/') {
+      return location.pathname === '/';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
-    <Disclosure as="nav" className="bg-white shadow-lg sticky top-0 z-50">
+    <Disclosure as="nav" className="bg-gray-900 shadow-md sticky top-0 z-50">
       {({ open }) => (
         <>
-          <div className="mx-auto px-4 sm:px-6 lg:px-8 w-full max-w-7xl">
+          <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
             <div className="relative flex h-16 items-center justify-between">
-              {/* Mobile menu button */}
-              <div className="absolute inset-y-0 left-0 flex items-center sm:hidden z-50">
-                <Disclosure.Button className="relative inline-flex items-center justify-center rounded-md p-2 text-gray-700 hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              <div className="absolute inset-y-0 left-0 flex items-center sm:hidden">
+                {/* Botón del menú móvil */}
+                <Disclosure.Button 
+                  className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                   onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 >
-                  <span className="absolute -inset-0.5" />
                   <span className="sr-only">Abrir menú principal</span>
                   {open ? (
                     <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
@@ -128,94 +92,122 @@ function Navbar() {
                   )}
                 </Disclosure.Button>
               </div>
-
-              {/* Desktop navigation */}
-              <div className="flex flex-1 items-center justify-center sm:justify-start">
-                {/* Logo completely removed as requested */}
-                <div className="hidden sm:ml-6 sm:flex sm:space-x-2 md:space-x-4">
-                  {allNavigation.map((item) => 
-                    item.hasSubmenu ? (
-                      <Popover className="relative" key={item.name}>
-                        {({ open }) => (
-                          <>
-                            <Popover.Button
-                              className={classNames(
-                                item.current ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700',
-                                'rounded-md px-3 py-2 text-sm font-medium flex items-center group transition-colors'
-                              )}
-                            >
-                              <span className="mr-1">{item.icon}</span>
-                              <span>{item.name}</span>
-                              <ChevronDownIcon 
+              
+              <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
+                {/* Logo */}
+                <div className="flex flex-shrink-0 items-center">
+                  <Link to="/">
+                    <img
+                      className="h-8 w-auto"
+                      src="/images/logo-white.png"
+                      alt="Abogado Wilson"
+                    />
+                  </Link>
+                </div>
+                
+                {/* Menú de navegación para desktop */}
+                <div className="hidden sm:ml-6 sm:block">
+                  <div className="flex space-x-4">
+                    {mainNavigation.map((item) => (
+                      item.hasSubmenu ? (
+                        <Popover key={item.name} className="relative">
+                          {({ open }) => (
+                            <>
+                              <Popover.Button
                                 className={classNames(
-                                  'ml-1 h-4 w-4 transition-transform',
-                                  open ? 'rotate-180 transform' : ''
+                                  isActive(item.href) ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                                  'inline-flex items-center px-3 py-2 rounded-md text-sm font-medium focus:outline-none'
                                 )}
-                              />
-                            </Popover.Button>
-
-                            <Transition
-                              as={Fragment}
-                              enter="transition ease-out duration-200"
-                              enterFrom="opacity-0 translate-y-1"
-                              enterTo="opacity-100 translate-y-0"
-                              leave="transition ease-in duration-150"
-                              leaveFrom="opacity-100 translate-y-0"
-                              leaveTo="opacity-0 translate-y-1"
-                            >
-                              <Popover.Panel className="absolute left-1/2 z-50 mt-1 w-56 -translate-x-1/2 transform">
-                                <div className="rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 overflow-hidden">
-                                  <div className="relative grid gap-1 p-2">
-                                    {(item.name === 'Servicios' ? serviceSubmenu : 
-                                      item.name === 'Consultas' ? consultasSubmenu : 
+                              >
+                                <span>{item.name}</span>
+                                <ChevronDownIcon
+                                  className={classNames(
+                                    open ? 'rotate-180' : '',
+                                    'ml-1 h-4 w-4 transition-transform duration-200'
+                                  )}
+                                  aria-hidden="true"
+                                />
+                              </Popover.Button>
+                              <Transition
+                                as={Fragment}
+                                enter="transition ease-out duration-100"
+                                enterFrom="transform opacity-0 scale-95"
+                                enterTo="transform opacity-100 scale-100"
+                                leave="transition ease-in duration-75"
+                                leaveFrom="transform opacity-100 scale-100"
+                                leaveTo="transform opacity-0 scale-95"
+                              >
+                                <Popover.Panel className="absolute left-0 z-10 mt-2 w-60 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                  <div className="py-1">
+                                    {(item.name === 'Servicios' ? serviceSubmenu :
+                                      item.name === 'Consultas' ? consultasSubmenu :
                                       item.name === 'Comunidad' ? comunidadSubmenu :
                                       item.name === 'Políticas' ? policySubmenu : []).map((subItem) => (
                                       <Link
                                         key={subItem.name}
                                         to={subItem.href}
-                                        className={classNames(
-                                          subItem.current ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700',
-                                          'flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors'
-                                        )}
+                                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                       >
                                         <span className="mr-2">{subItem.icon}</span>
                                         <span>{subItem.name}</span>
                                       </Link>
                                     ))}
                                   </div>
-                                </div>
-                              </Popover.Panel>
-                            </Transition>
-                          </>
-                        )}
-                      </Popover>
-                    ) : (
-                      <Link
-                        key={item.name}
-                        to={item.href}
-                        className={classNames(
-                          item.current ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700',
-                          'rounded-md px-3 py-2 text-sm font-medium flex items-center transition-colors'
-                        )}
-                      >
-                        <span className="mr-1">{item.icon}</span>
-                        <span>{item.name}</span>
-                      </Link>
-                    )
-                  )}
+                                </Popover.Panel>
+                              </Transition>
+                            </>
+                          )}
+                        </Popover>
+                      ) : (
+                        <Link
+                          key={item.name}
+                          to={item.href}
+                          className={classNames(
+                            isActive(item.href) ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                            'px-3 py-2 rounded-md text-sm font-medium'
+                          )}
+                        >
+                          {item.name}
+                        </Link>
+                      )
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* Right side buttons */}
-              <div className="absolute inset-y-0 right-0 flex items-center space-x-1 sm:static sm:space-x-2">
-                {/* Auth buttons */}
-                {session ? (
+              
+              <div className="absolute inset-y-0 right-0 flex items-center space-x-4 pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                {/* Botón WhatsApp */}
+                <a
+                  href="https://wa.me/593992529049"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden sm:flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700"
+                >
+                  <FaWhatsapp className="mr-1" />
+                  WhatsApp
+                </a>
+                
+                {/* Widget del Carrito */}
+                <CartWidget />
+                
+                {/* Botón de Tokens */}
+                <Link
+                  to="/tokens"
+                  className="hidden sm:flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-yellow-600 text-white hover:bg-yellow-700"
+                >
+                  <FaCoins className="mr-1" />
+                  Tokens
+                </Link>
+                
+                {/* Menú de usuario */}
+                {user ? (
                   <Menu as="div" className="relative ml-3">
                     <div>
-                      <Menu.Button className="relative flex rounded-full bg-blue-100 p-1 text-blue-600 hover:bg-blue-200 focus:outline-none">
-                        <span className="absolute -inset-1.5" />
+                      <Menu.Button className="flex rounded-full bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800">
                         <span className="sr-only">Abrir menú de usuario</span>
-                        <UserIcon className="h-6 w-6" aria-hidden="true" />
+                        <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
+                          {user.email.charAt(0).toUpperCase()}
+                        </div>
                       </Menu.Button>
                     </div>
                     <Transition
@@ -228,31 +220,36 @@ function Navbar() {
                       leaveTo="transform opacity-0 scale-95"
                     >
                       <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                        <Menu.Item>
-                          {({ active }) => (
-                            <Link
-                              to="/dashboard"
-                              className={classNames(
-                                active ? 'bg-blue-50' : '',
-                                'block px-4 py-2 text-sm text-gray-700'
-                              )}
-                            >
-                              Mi Dashboard
-                            </Link>
-                          )}
-                        </Menu.Item>
+                        {userSubmenu.map((item) => (
+                          <Menu.Item key={item.name}>
+                            {({ active }) => (
+                              <Link
+                                to={item.href}
+                                className={classNames(
+                                  active ? 'bg-gray-100' : '',
+                                  'flex items-center px-4 py-2 text-sm text-gray-700'
+                                )}
+                              >
+                                <span className="mr-2">{item.icon}</span>
+                                <span>{item.name}</span>
+                              </Link>
+                            )}
+                          </Menu.Item>
+                        ))}
                         <Menu.Item>
                           {({ active }) => (
                             <button
-                              onClick={async () => {
-                                await authService.signOut();
+                              onClick={() => {
+                                localStorage.removeItem('authToken');
+                                window.location.href = '/';
                               }}
                               className={classNames(
-                                active ? 'bg-blue-50' : '',
-                                'block w-full text-left px-4 py-2 text-sm text-gray-700'
+                                active ? 'bg-gray-100' : '',
+                                'flex items-center w-full text-left px-4 py-2 text-sm text-gray-700'
                               )}
                             >
-                              Cerrar Sesión
+                              <FaSignInAlt className="mr-2 text-red-500" />
+                              <span>Cerrar Sesión</span>
                             </button>
                           )}
                         </Menu.Item>
@@ -260,83 +257,59 @@ function Navbar() {
                     </Transition>
                   </Menu>
                 ) : (
-                  <div className="flex space-x-1">
+                  <div className="flex items-center space-x-2">
                     <Link
-                      to="/registro"
-                      className="inline-flex items-center p-1.5 text-xs font-medium rounded text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100"
+                      to="/auth/login"
+                      className="hidden sm:flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700"
                     >
-                      <FaUserPlus className="mr-1" /> Registrarse
+                      <FaSignInAlt className="mr-1" />
+                      Ingresar
                     </Link>
                     <Link
-                      to="/login"
-                      className="inline-flex items-center p-1.5 text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
+                      to="/auth/register"
+                      className="hidden sm:flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-gray-700 text-white hover:bg-gray-800"
                     >
-                      <FaSignInAlt className="mr-1" /> Iniciar Sesión
+                      <FaUserPlus className="mr-1" />
+                      Registro
                     </Link>
                   </div>
                 )}
-                
-                {/* Contact Action Buttons - Hidden on small screens */}
-                <div className="hidden md:flex md:items-center space-x-1">
-                  <a 
-                    href="tel:+593988835269" 
-                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors duration-200"
-                  >
-                    <FaPhone className="mr-1" /> Llamar
-                  </a>
-                  <a 
-                    href="https://wa.me/593988835269" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-500 hover:bg-green-600 transition-colors duration-200"
-                  >
-                    <FaWhatsapp className="mr-1" /> WhatsApp
-                  </a>
-                  <Link 
-                    to="/contacto" 
-                    className="inline-flex items-center p-1.5 border border-transparent text-xs font-medium rounded-md text-gray-900 bg-yellow-400 hover:bg-yellow-500 transition-colors duration-200"
-                  >
-                    <FaEnvelope className="mr-1" /> Consulta Gratis
-                  </Link>
-                </div>
               </div>
             </div>
           </div>
 
-          {/* Mobile menu */}
-          <Disclosure.Panel className="sm:hidden bg-white border-t border-gray-100 shadow-lg">
+          {/* Menú móvil */}
+          <Disclosure.Panel className="sm:hidden">
             <div className="space-y-1 px-2 pb-3 pt-2">
-              {allNavigation.map((item) =>
+              {mainNavigation.map((item) => (
                 item.hasSubmenu ? (
                   <Disclosure key={item.name} as="div" className="mt-1">
                     {({ open }) => (
                       <>
                         <Disclosure.Button
                           className={classNames(
-                            item.current ? 'bg-blue-100 text-blue-700' : 'hover:bg-blue-50 hover:text-blue-700',
-                            'group w-full flex items-center justify-between rounded-md px-2 py-2 text-left text-sm font-medium text-gray-700 focus:outline-none'
+                            isActive(item.href) ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                            'flex w-full items-center justify-between rounded-md px-3 py-2 text-base font-medium'
                           )}
                         >
-                          <div className="flex items-center">
-                            <span className="mr-2">{item.icon}</span>
-                            <span>{item.name}</span>
-                          </div>
+                          <span>{item.name}</span>
                           <ChevronDownIcon
                             className={classNames(
-                              'h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-transform',
-                              open ? 'rotate-180 transform' : ''
+                              open ? 'rotate-180' : '',
+                              'h-5 w-5 transition-transform duration-200'
                             )}
+                            aria-hidden="true"
                           />
                         </Disclosure.Button>
-                        <Disclosure.Panel className="mt-1 space-y-1">
-                          {(item.name === 'Servicios' ? serviceSubmenu : 
-                            item.name === 'Consultas' ? consultasSubmenu : 
+                        <Disclosure.Panel className="mt-2 space-y-1">
+                          {(item.name === 'Servicios' ? serviceSubmenu :
+                            item.name === 'Consultas' ? consultasSubmenu :
                             item.name === 'Comunidad' ? comunidadSubmenu :
                             item.name === 'Políticas' ? policySubmenu : []).map((subItem) => (
                             <Link
                               key={subItem.name}
                               to={subItem.href}
-                              className="group flex items-center rounded-md py-2 pl-4 pr-2 text-sm font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-700"
+                              className="group flex items-center rounded-md py-2 pl-4 pr-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
                             >
                               <span className="mr-2">{subItem.icon}</span>
                               <span>{subItem.name}</span>
@@ -351,28 +324,45 @@ function Navbar() {
                     key={item.name}
                     to={item.href}
                     className={classNames(
-                      item.current ? 'bg-blue-100 text-blue-700' : 'hover:bg-blue-50 hover:text-blue-700',
-                      'flex items-center rounded-md px-2 py-2 text-sm font-medium text-gray-700'
+                      isActive(item.href) ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                      'flex items-center rounded-md px-3 py-2 text-base font-medium'
                     )}
                   >
                     <span className="mr-2">{item.icon}</span>
                     <span>{item.name}</span>
                   </Link>
                 )
-              )}
+              ))}
+              
+              {/* Nuevos enlaces en el menú móvil */}
+              <Link
+                to="/tokens"
+                className="flex items-center rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+              >
+                <FaCoins className="mr-2 text-yellow-500" />
+                <span>Comprar Tokens</span>
+              </Link>
+              
+              <Link
+                to="/agendar-cita"
+                className="flex items-center rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+              >
+                <FaCalendarAlt className="mr-2 text-green-500" />
+                <span>Agendar Cita</span>
+              </Link>
               
               {/* Mobile Contact Action Buttons */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Contacto Directo</h3>
+              <div className="mt-4 pt-4 border-t border-gray-700">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contacto Directo</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <a 
-                    href="tel:+593988835269" 
+                    href="tel:+593992529049" 
                     className="flex items-center justify-center p-2 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                   >
                     <FaPhone className="mr-1" /> Llamar
                   </a>
                   <a 
-                    href="https://wa.me/593988835269" 
+                    href="https://wa.me/593992529049" 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className="flex items-center justify-center p-2 border border-transparent text-xs font-medium rounded-md text-white bg-green-500 hover:bg-green-600"
@@ -380,7 +370,7 @@ function Navbar() {
                     <FaWhatsapp className="mr-1" /> WhatsApp
                   </a>
                   <Link 
-                    to="/contacto" 
+                    to="/consulta" 
                     className="flex items-center justify-center p-2 border border-transparent text-xs font-medium rounded-md text-gray-900 bg-yellow-400 hover:bg-yellow-500 col-span-2 mt-1"
                   >
                     <FaEnvelope className="mr-1" /> Consulta Gratis
@@ -389,22 +379,43 @@ function Navbar() {
               </div>
               
               {/* Mobile Authentication Buttons */}
-              {!session && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Mi Cuenta</h3>
+              {!user ? (
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Mi Cuenta</h3>
                   <div className="grid grid-cols-2 gap-2">
                     <Link
-                      to="/login"
+                      to="/auth/login"
                       className="flex items-center justify-center p-2 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                     >
                       <FaSignInAlt className="mr-1" /> Iniciar Sesión
                     </Link>
                     <Link
-                      to="/registro"
-                      className="flex items-center justify-center p-2 text-xs font-medium rounded-md text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100"
+                      to="/auth/register"
+                      className="flex items-center justify-center p-2 text-xs font-medium rounded-md text-white bg-gray-600 border border-gray-500 hover:bg-gray-700"
                     >
                       <FaUserPlus className="mr-1" /> Registrarse
                     </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Mi Cuenta</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link
+                      to="/dashboard"
+                      className="flex items-center justify-center p-2 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      <UserIcon className="h-4 w-4 mr-1" /> Dashboard
+                    </Link>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('authToken');
+                        window.location.href = '/';
+                      }}
+                      className="flex items-center justify-center p-2 text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                    >
+                      <FaSignInAlt className="mr-1" /> Cerrar Sesión
+                    </button>
                   </div>
                 </div>
               )}
