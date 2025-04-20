@@ -6,6 +6,7 @@ import { handleLegalQueries } from './api/legal-queries'
 import { handleBlogRequests } from './api/blog'
 import { handleConfigRequest } from './api/config-handler'
 import { handleProxyRequest } from './api/proxy-handler'
+import { handleFaviconRequest, DEFAULT_FAVICON_SVG } from './favicon'
 
 /**
  * Worker para servir sitio estático SPA con Cloudflare Workers
@@ -54,12 +55,7 @@ function handleOptions(request) {
 /**
  * Variables globales
  */
-const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32" height="32">
-  <rect width="100" height="100" rx="20" fill="#2563eb"/>
-  <path d="M30 30 L70 30 L70 70 L30 70 Z" fill="none" stroke="white" stroke-width="5"/>
-  <path d="M40 45 L60 45" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <path d="M40 55 L55 55" stroke="white" stroke-width="5" stroke-linecap="round"/>
-</svg>`;
+// Usando favicon desde el módulo favicon.js
 
 // Modo de depuración para mostrar errores detallados
 const DEBUG = false;
@@ -75,52 +71,7 @@ async function handleEvent(event) {
   
   // Manejar favicon específicamente (tanto .ico como .svg)
   if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') {
-    try {
-      // Intentar obtener el favicon desde el directorio public directamente
-      const faviconPath = url.pathname === '/favicon.ico' ? 'favicon.ico' : 'favicon.svg';
-      const response = await getAssetFromKV(event, {
-        mapRequestToAsset: req => new Request(`${new URL(req.url).origin}/${faviconPath}`, req)
-      }).catch(e => {
-        console.error('Error obteniendo favicon:', e);
-        return null;
-      });
-      
-      if (response) {
-        // Agregar caché y encabezados CORS
-        const newHeaders = new Headers(response.headers);
-        newHeaders.set('Cache-Control', 'public, max-age=86400');
-        Object.entries(corsHeaders).forEach(([key, value]) => {
-          newHeaders.set(key, value);
-        });
-        
-        return new Response(response.body, {
-          status: 200,
-          headers: newHeaders
-        });
-      }
-      
-      // Si no se puede obtener desde KV, usar un favicon en línea
-      return new Response(faviconSvg, { 
-        status: 200,
-        headers: {
-          'Content-Type': 'image/svg+xml',
-          'Cache-Control': 'public, max-age=86400',
-          ...corsHeaders
-        }
-      });
-    } catch (e) {
-      console.error('Error al servir favicon:', e);
-      
-      // Si todo falla, devolver un favicon simple en línea
-      return new Response(faviconSvg, { 
-        status: 200,
-        headers: {
-          'Content-Type': 'image/svg+xml',
-          'Cache-Control': 'public, max-age=86400',
-          ...corsHeaders
-        }
-      });
-    }
+    return handleFaviconRequest(event, corsHeaders);
   }
   
   // Opciones para servir activos estáticos
@@ -172,7 +123,7 @@ async function handleEvent(event) {
   
   // Intenta obtener el activo desde KV
   try {
-    // Lista de rutas SPA conocidas que debemos manejar
+    // Lista completa de rutas SPA conocidas que debemos manejar
     const spaRoutes = [
       '/', 
       '/about', 
@@ -185,32 +136,60 @@ async function handleEvent(event) {
       '/legal',
       '/terms',
       '/privacy',
+      '/auth',
       '/auth/login',
       '/auth/register',
       '/auth/forgot-password',
       '/dashboard',
       '/dashboard/tokens',
-      '/dashboard/consultations'
+      '/dashboard/consultations',
+      '/login',
+      '/register',
+      '/registro',
+      '/ebooks',
+      '/ebooks/',
+      '/ebookstore',
+      '/civil',
+      '/penal',
+      '/comercial',
+      '/aduanas',
+      '/transito',
+      '/newslettersignup',
+      '/newsletter',
+      '/newsletter-signup',
+      '/reset-password',
+      '/forgot-password',
+      '/contacto'
     ];
     
-    // Verificar si es una ruta de blog específica
-    if (url.pathname.startsWith('/blog/post/')) {
-      // Servir index.html para rutas de blog
-      return getAssetFromKV(event, {
-        mapRequestToAsset: req => new Request(`${url.origin}/index.html`, req)
-      });
-    }
+    // Verificar si la URL contiene un punto, lo que indica un archivo estático (ej. .js, .css, .png)
+    const hasFileExtension = url.pathname.includes('.');
     
-    // Verificar si es una ruta SPA conocida o una sub-ruta de estas
-    const isKnownSpaRoute = spaRoutes.some(route => 
-      url.pathname === route || url.pathname.startsWith(`${route}/`)
-    );
-    
-    if (isKnownSpaRoute) {
-      // Servir index.html para todas las rutas SPA
-      return getAssetFromKV(event, {
-        mapRequestToAsset: req => new Request(`${url.origin}/index.html`, req)
-      });
+    // Las rutas sin extensión se tratan como rutas de SPA
+    if (!hasFileExtension || url.pathname.startsWith('/blog/post/')) {
+      console.log('Sirviendo aplicación SPA para ruta:', url.pathname);
+      
+      try {
+        // Intentar servir index.html para todas las rutas SPA
+        const response = await getAssetFromKV(event, {
+          mapRequestToAsset: req => new Request(`${url.origin}/index.html`, req)
+        });
+        
+        // Añadir encabezados CORS y de caché optimizados
+        const headers = new Headers(response.headers);
+        headers.set('Access-Control-Allow-Origin', '*');
+        headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        headers.set('Cache-Control', 'no-cache');
+        
+        return new Response(response.body, {
+          status: 200,
+          headers
+        });
+      } catch (err) {
+        console.error('Error al servir SPA:', err);
+        // Continuamos a intentar servir el asset específico
+      }
     }
     
     // Para otras peticiones, intentar servir el recurso estático
@@ -229,23 +208,67 @@ async function handleEvent(event) {
       headers
     });
   } catch (e) {
-    // Si no se encuentra el recurso, servir index.html (SPA fallback)
-    if (e.status === 404) {
-      console.log('Recurso no encontrado, sirviendo SPA:', url.pathname);
-      return getAssetFromKV(event, {
+    console.error('Error al procesar solicitud para:', url.pathname, e);
+    
+    // Para cualquier error, incluidos 404, servir siempre index.html para rutas SPA
+    // Esto garantiza que React Router maneje las rutas correctamente
+    try {
+      console.log('Intentando servir SPA como fallback para:', url.pathname);
+      const response = await getAssetFromKV(event, {
         mapRequestToAsset: req => new Request(`${url.origin}/index.html`, req)
       });
+      
+      const headers = new Headers(response.headers);
+      headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      headers.set('Access-Control-Allow-Headers', 'Content-Type');
+      headers.set('Cache-Control', 'no-cache');
+      
+      return new Response(response.body, {
+        status: 200,  // Siempre devolver 200 para que React Router maneje la navegación
+        headers
+      });
+    } catch (fallbackError) {
+      console.error('Error crítico, incluso el fallback falló:', fallbackError);
+      
+      // Si todo falla, crear una página HTML de error que redirija al usuario a la página principal
+      const errorHtml = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Abogado Wilson - Error Temporal</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+          h1 { color: #2563eb; }
+          p { margin: 20px 0; }
+          button { background: #2563eb; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 5px; }
+        </style>
+        <script>
+          // Redireccionar a la página principal después de 5 segundos
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 5000);
+        </script>
+      </head>
+      <body>
+        <h1>Estamos experimentando dificultades técnicas</h1>
+        <p>Nuestro equipo ha sido notificado y está trabajando para resolver el problema.</p>
+        <p>Serás redirigido a la página principal en 5 segundos.</p>
+        <button onclick="window.location.href='/'">Ir a la página principal ahora</button>
+      </body>
+      </html>
+      `;
+      
+      return new Response(errorHtml, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+          ...corsHeaders
+        }
+      });
     }
-    
-    // Otros errores, servir una página de error
-    return new Response(`Error: ${e.message}`, {
-      status: e.status || 500,
-      statusText: e.statusText || 'Server Error',
-      headers: {
-        'Content-Type': 'text/plain',
-        ...corsHeaders
-      }
-    });
   }
 }
 
