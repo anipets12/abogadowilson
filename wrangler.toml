@@ -1,5 +1,6 @@
 name = "abogado-wilson"
-# NO especificamos main ya que usaremos el worker.js predeterminado
+# Especificamos el punto de entrada que Cloudflare está pidiendo
+main = "workers-site/index.js"
 compatibility_date = "2024-02-14"
 account_id = "f21b24d86935a055c03d21f7fffd1514"
 workers_dev = true

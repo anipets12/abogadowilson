@@ -1,7 +1,7 @@
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler'
 
 /**
- * Worker alternativo compatible con Cloudflare Workers Sites
+ * Worker para servir sitio estático SPA con Cloudflare Workers
  */
 addEventListener('fetch', event => {
   try {
@@ -20,42 +20,55 @@ async function handleEvent(event) {
       return new Response(null, { status: 204 })
     }
     
-    // Intentar obtener el recurso estático
+    // Opciones para servir activos estáticos
     const options = {
       // Si la ruta no contiene un punto (sin extensión), servir index.html para SPA
       mapRequestToAsset: req => {
-        const requestURL = new URL(req.url)
-        if (!requestURL.pathname.includes('.')) {
-          return new Request(`${requestURL.origin}/index.html`, req)
+        const url = new URL(req.url)
+        if (!url.pathname.includes('.')) {
+          return new Request(`${url.origin}/index.html`, req)
         }
         return req
       }
     }
     
+    // Intenta obtener el activo desde KV
     const page = await getAssetFromKV(event, options)
-    const response = new Response(page.body, page)
     
-    // Agregar headers de seguridad
+    // Devolver activo con headers adicionales
+    const response = new Response(page.body, page)
     response.headers.set('X-XSS-Protection', '1; mode=block')
     response.headers.set('X-Content-Type-Options', 'nosniff')
     response.headers.set('X-Frame-Options', 'DENY')
+    response.headers.set('Referrer-Policy', 'no-referrer-when-downgrade')
     response.headers.set('Access-Control-Allow-Origin', '*')
     
     return response
   } catch (e) {
-    // Si es una ruta SPA sin extensión, intentar servir index.html
+    // Si ocurre un error, intentar servir index.html para SPA
     if (!url.pathname.includes('.')) {
       try {
-        const page = await getAssetFromKV(event, {
+        const notFoundResponse = await getAssetFromKV(event, {
           mapRequestToAsset: req => new Request(`${new URL(req.url).origin}/index.html`, req)
         })
-        return new Response(page.body, page)
+        
+        return new Response(notFoundResponse.body, {
+          ...notFoundResponse,
+          status: 200
+        })
       } catch (e) {
-        // Si todo falla, mostrar error amigable
-        return new Response('Página no encontrada', { status: 404 })
+        // Si todo falla, devolver una respuesta amigable
+        return new Response('Página en mantenimiento. Por favor, intente más tarde.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        })
       }
     }
     
-    return new Response('Recurso no encontrado', { status: 404 })
+    // Para recursos estáticos no encontrados
+    return new Response('Recurso no encontrado', { 
+      status: 404,
+      headers: { 'Content-Type': 'text/plain' }
+    })
   }
 }
