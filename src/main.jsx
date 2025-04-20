@@ -41,6 +41,28 @@ if (typeof window !== 'undefined') {
     }
   }, true);
   
+  // Solución temporal para errores de React Router
+  window.addEventListener('error', function(event) {
+    if (event.error && event.error.toString().includes('e is undefined')) {
+      console.warn('Interceptado error de React Router:', event.error);
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // Intentar reiniciar router
+      setTimeout(() => {
+        try {
+          if (window.__recoverFromRouterError) {
+            window.__recoverFromRouterError();
+          }
+        } catch (e) {
+          console.error('Error al recuperar router:', e);
+        }
+      }, 0);
+      
+      return true;
+    }
+  });
+  
   // Detectar si la aplicación está funcionando correctamente
   let appStartTime = Date.now();
   let appStartupCheck = setInterval(() => {

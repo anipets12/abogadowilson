@@ -15,8 +15,22 @@ export function applyReactRouterFixes() {
     if (args[0] && typeof args[0] === 'string') {
       if (args[0].includes('e is undefined') || 
           args[0].includes('Failed to execute \'appendChild\' on \'Node\'') ||
-          args[0].includes('NetworkError when attempting to fetch resource')) {
+          args[0].includes('NetworkError when attempting to fetch resource') ||
+          args[0].includes('index.esm.js:640') ||
+          args[0].includes('index.esm.js:644')) {
         console.log('Suprimiendo error de React Router:', args[0].substring(0, 100) + '...');
+        
+        // Intentar recuperar el router
+        setTimeout(() => {
+          try {
+            if (window.__recoverFromRouterError) {
+              window.__recoverFromRouterError();
+            }
+          } catch (e) {
+            console.error('Error al recuperar router:', e);
+          }
+        }, 0);
+        
         return;
       }
     }
@@ -46,6 +60,75 @@ export function applyReactRouterFixes() {
     window.Event.prototype = originalCreateEvent.prototype;
   }
 
+  // Interceptar errores específicos en módulos de React Router
+  window.addEventListener('unhandledrejection', function(event) {
+    if (event.reason && event.reason.message && (
+        event.reason.message.includes('e is undefined') ||
+        event.reason.message.includes('Failed to fetch') ||
+        event.reason.message.includes('router.js'))) {
+      console.log('Error interceptado y neutralizado:', event.reason.message);
+      event.preventDefault();
+      
+      // Activar recuperación
+      if (window.__recoverFromRouterError) {
+        setTimeout(() => window.__recoverFromRouterError(), 0);
+      }
+      
+      return false;
+    }
+  });
+  
+  // Mejor implementación para el método __recoverFromRouterError
+  window.__recoverFromRouterError = function() {
+    try {
+      // Obtener el estado actual
+      const currentLocation = window.location;
+      const currentPath = currentLocation.pathname;
+      const searchParams = currentLocation.search;
+      
+      console.log('Recuperando de error de router para:', currentPath);
+      
+      // Técnica 1: Reinicar el estado de la historia
+      const cleanPath = currentPath.split('?')[0];
+      window.history.replaceState({key: Date.now().toString()}, '', cleanPath + searchParams);
+      
+      // Técnica 2: Limpiar renderizado actual e intentar re-renderizar
+      const root = document.getElementById('root');
+      if (root) {
+        const routerDiv = document.createElement('div');
+        routerDiv.id = 'router-recovery';
+        routerDiv.style.display = 'none';
+        root.appendChild(routerDiv);
+        
+        // Forzar reflujo/recálculo DOM
+        setTimeout(() => {
+          if (routerDiv && routerDiv.parentNode) {
+            routerDiv.parentNode.removeChild(routerDiv);
+          }
+          
+          // Técnica 3: emitir evento de navegación simulado
+          window.dispatchEvent(new PopStateEvent('popstate', { 
+            state: {key: Date.now().toString()} 
+          }));
+        }, 50);
+      }
+      
+      // Verificar si necesitamos redirigir a inicio por demasiados errores
+      const errorCount = parseInt(sessionStorage.getItem('router_error_count') || '0');
+      if (errorCount > 3) {
+        sessionStorage.setItem('router_error_count', '0');
+        if (currentPath !== '/') {
+          console.log('Demasiados errores, redirigiendo a inicio...');
+          window.location.href = '/';
+          return;
+        }
+      }
+      sessionStorage.setItem('router_error_count', (errorCount + 1).toString());
+    } catch (e) {
+      console.error('Error en recuperación de React Router:', e);
+    }
+  };
+  
   // Prevenir cierre abrupto por errores de red
   window.addEventListener('unhandledrejection', function(event) {
     if (event.reason && event.reason.message && (
@@ -95,29 +178,6 @@ export function applyReactRouterFixes() {
       } catch (error) {
         console.log('Error interceptado en history.replaceState:', error);
         return null;
-      }
-    };
-    
-    // Función global para recuperar de errores
-    window.__recoverFromRouterError = function() {
-      try {
-        // Reinicar el estado de la historia si es necesario
-        if (window.location.pathname !== '/') {
-          const cleanPath = window.location.pathname.split('?')[0];
-          window.history.replaceState(null, '', cleanPath);
-        }
-        console.log('La aplicación no se ha renderizado correctamente. Intentando recuperación...');
-        
-        // Si hay demasiados errores consecutivos, redirigir a la página principal
-        const errorCount = parseInt(sessionStorage.getItem('router_error_count') || '0');
-        if (errorCount > 3) {
-          sessionStorage.setItem('router_error_count', '0');
-          window.location.href = '/';
-          return;
-        }
-        sessionStorage.setItem('router_error_count', (errorCount + 1).toString());
-      } catch (e) {
-        console.error('Error en recuperación de React Router:', e);
       }
     };
     

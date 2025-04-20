@@ -2,6 +2,8 @@ import { getAssetFromKV } from '@cloudflare/kv-asset-handler'
 import { handleChatRequest } from './api/chat'
 import { handleSupabaseProxy, checkSupabaseConnection } from './api/supabase-proxy'
 import { handleSearches } from './api/searches'
+import { handleLegalQueries } from './api/legal-queries'
+import { handleBlogRequests } from './api/blog'
 
 /**
  * Worker para servir sitio estático SPA con Cloudflare Workers
@@ -72,19 +74,30 @@ async function handleEvent(event) {
   // Manejar favicon específicamente (tanto .ico como .svg)
   if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') {
     try {
-      // Intentar obtener el favicon desde KV primero
-      const faviconRequest = new Request(`${url.origin}/favicon.svg`, request);
-      const favicon = await getAssetFromKV(event, {
-        mapRequestToAsset: req => faviconRequest
-      }).catch(() => null);
+      // Intentar obtener el favicon desde el directorio public directamente
+      const faviconPath = url.pathname === '/favicon.ico' ? 'favicon.ico' : 'favicon.svg';
+      const response = await getAssetFromKV(event, {
+        mapRequestToAsset: req => new Request(`${new URL(req.url).origin}/${faviconPath}`, req)
+      }).catch(e => {
+        console.error('Error obteniendo favicon:', e);
+        return null;
+      });
       
-      if (favicon) {
-        const response = new Response(favicon.body, favicon);
-        response.headers.set('Cache-Control', 'public, max-age=86400');
-        return response;
+      if (response) {
+        // Agregar caché y encabezados CORS
+        const newHeaders = new Headers(response.headers);
+        newHeaders.set('Cache-Control', 'public, max-age=86400');
+        Object.entries(corsHeaders).forEach(([key, value]) => {
+          newHeaders.set(key, value);
+        });
+        
+        return new Response(response.body, {
+          status: 200,
+          headers: newHeaders
+        });
       }
       
-      // Si no se encuentra en KV, usar el favicon en línea
+      // Si no se puede obtener desde KV, usar un favicon en línea
       return new Response(faviconSvg, { 
         status: 200,
         headers: {
@@ -94,7 +107,9 @@ async function handleEvent(event) {
         }
       });
     } catch (e) {
-      // Si todo falla, devolver un favicon en línea
+      console.error('Error al servir favicon:', e);
+      
+      // Si todo falla, devolver un favicon simple en línea
       return new Response(faviconSvg, { 
         status: 200,
         headers: {
@@ -155,91 +170,79 @@ async function handleEvent(event) {
   
   // Intenta obtener el activo desde KV
   try {
-    const page = await getAssetFromKV(event, options)
+    // Lista de rutas SPA conocidas que debemos manejar
+    const spaRoutes = [
+      '/', 
+      '/about', 
+      '/services', 
+      '/contact', 
+      '/blog', 
+      '/blog/', 
+      '/consultations', 
+      '/consultations/', 
+      '/legal',
+      '/terms',
+      '/privacy',
+      '/auth/login',
+      '/auth/register',
+      '/auth/forgot-password',
+      '/dashboard',
+      '/dashboard/tokens',
+      '/dashboard/consultations'
+    ];
     
-    // Devolver activo con headers optimizados
-    const response = new Response(page.body, page)
-  
-  // Headers de seguridad
-  response.headers.set('X-XSS-Protection', '1; mode=block')
-  response.headers.set('X-Content-Type-Options', 'nosniff')
-  response.headers.set('X-Frame-Options', 'DENY')
-  response.headers.set('Referrer-Policy', 'no-referrer-when-downgrade')
-  
-  // Headers CORS completos
-  for (const [key, value] of Object.entries(corsHeaders)) {
-    response.headers.set(key, value)
-  }
-  
-  // Agregar headers especiales para archivos HTML para ayudar con React 
-  const contentType = response.headers.get('content-type') || ''
-  if (contentType.includes('text/html')) {
-    // Injectar script global React para evitar errores de 'React is not defined'
-    const originalHtml = await page.text()
-    const scriptTag = `<script>
-      // Configuración global para prevenir errores comunes
-      window.React = window.React || {};
-      // Asegurar que React.createElement está disponible para evitar errores en router.js
-      window.React.createElement = window.React.createElement || function() { return document.createElement.apply(document, arguments); };
-      // Evitar errores de Turnstile
-      window.turnstileSitekey = "0x4AAAAAABDkl--Sw4n_bwmU";
-      // Compatibilidad para prevenir errores en versiones antiguas
-      window.global = window;
-      // Parche para errores de undefined en router.js
-      window.__patchForCloudflare = function() {
-        if (typeof e === 'undefined' && arguments.length > 0) return arguments[0];
-        return e;
-      };
-      </script>
-`
-    const modifiedHtml = originalHtml.replace('<head>', `<head>\n${scriptTag}`)
+    // Verificar si es una ruta de blog específica
+    if (url.pathname.startsWith('/blog/post/')) {
+      // Servir index.html para rutas de blog
+      return getAssetFromKV(event, {
+        mapRequestToAsset: req => new Request(`${url.origin}/index.html`, req)
+      });
+    }
     
-    return new Response(modifiedHtml, {
+    // Verificar si es una ruta SPA conocida o una sub-ruta de estas
+    const isKnownSpaRoute = spaRoutes.some(route => 
+      url.pathname === route || url.pathname.startsWith(`${route}/`)
+    );
+    
+    if (isKnownSpaRoute) {
+      // Servir index.html para todas las rutas SPA
+      return getAssetFromKV(event, {
+        mapRequestToAsset: req => new Request(`${url.origin}/index.html`, req)
+      });
+    }
+    
+    // Para otras peticiones, intentar servir el recurso estático
+    const response = await getAssetFromKV(event);
+    
+    // Añadir encabezados CORS
+    const headers = new Headers(response.headers);
+    
+    headers.set('Access-Control-Allow-Origin', '*');
+    headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
-      headers: response.headers
-    })
-  }
-  
-  return response
-  } catch (error) {
-    // Manejar errores de assets no encontrados
-    console.error(`Error al obtener asset: ${url.pathname}`, error);
-    
-    // Si es una imagen, generar un placeholder
-    if (url.pathname.includes('/images/') || 
-        url.pathname.endsWith('.jpg') || 
-        url.pathname.endsWith('.png') || 
-        url.pathname.endsWith('.svg') ||
-        url.pathname.endsWith('.gif') ||
-        url.pathname.endsWith('.webp')) {
-      return handleMissingImage(url);
+      headers
+    });
+  } catch (e) {
+    // Si no se encuentra el recurso, servir index.html (SPA fallback)
+    if (e.status === 404) {
+      console.log('Recurso no encontrado, sirviendo SPA:', url.pathname);
+      return getAssetFromKV(event, {
+        mapRequestToAsset: req => new Request(`${url.origin}/index.html`, req)
+      });
     }
     
-    // Para rutas de SPA, devolver index.html para que React Router maneje la ruta
-    if (!url.pathname.includes('.')) {
-      try {
-        const indexPage = await getAssetFromKV(
-          event,
-          {
-            ...options,
-            mapRequestToAsset: () => new Request(`${url.origin}/index.html`, request)
-          }
-        );
-        return new Response(indexPage.body, indexPage);
-      } catch (e) {
-        // Si falla todo, mostrar error 404
-        return new Response('Página no encontrada', {
-          status: 404,
-          headers: { 'Content-Type': 'text/plain', ...corsHeaders }
-        });
+    // Otros errores, servir una página de error
+    return new Response(`Error: ${e.message}`, {
+      status: e.status || 500,
+      statusText: e.statusText || 'Server Error',
+      headers: {
+        'Content-Type': 'text/plain',
+        ...corsHeaders
       }
-    }
-    
-    // Para otros recursos no encontrados
-    return new Response('Recurso no encontrado', {
-      status: 404,
-      headers: { 'Content-Type': 'text/plain', ...corsHeaders }
     });
   }
 }
@@ -273,6 +276,16 @@ async function handleApiRequest(event, url) {
   // API para búsquedas recientes
   if (url.pathname === '/api/data/searches') {
     return handleSearches(request);
+  }
+
+  // API para consultas legales
+  if (url.pathname === '/api/data/legal-queries') {
+    return handleLegalQueries(request);
+  }
+
+  // API para blog
+  if (url.pathname.startsWith('/api/blog')) {
+    return handleBlogRequests(request);
   }
 
   // Default response for unhandled API routes
