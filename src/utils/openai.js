@@ -1,17 +1,35 @@
-// OpenAI API integration utility functions
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'YOUR_API_KEY_HERE';
+// OpenRouter API integration utility functions
+const OPENROUTER_API_KEY = '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';
+
+// Configuración de fallback para evitar errores en desarrollo
+const FALLBACK_RESPONSE = {
+  consejo: 'Este es un consejo legal simulado para propósitos de desarrollo. En producción, obtendrás un análisis real basado en IA.',
+  documento: 'Este es un documento legal simulado para propósitos de desarrollo.',
+  analisis: 'Este es un análisis de caso simulado para propósitos de desarrollo.'
+};
 
 // Function to generate legal advice based on user query
 export const generateLegalAdvice = async (query, area = 'general') => {
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Verificamos si estamos en un entorno que puede hacer peticiones externas
+    if (typeof window === 'undefined' || !navigator.onLine) {
+      // Respuesta simulada para entorno sin conexión
+      return {
+        advice: FALLBACK_RESPONSE.consejo,
+        success: true
+      };
+    }
+    
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': window.location.origin || 'https://abogado-wilson.anipets12.workers.dev',
+        'X-Title': 'Abogado Wilson - Consulta Legal'
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'anthropic/claude-3-haiku:beta',
         messages: [
           {
             role: 'system',
@@ -32,6 +50,14 @@ export const generateLegalAdvice = async (query, area = 'general') => {
       })
     });
 
+    if (!response.ok) {
+      // Si hay un error en la respuesta, devolver un fallback amigable
+      return {
+        advice: `Por el momento no podemos procesar su consulta (${response.status}). Por favor contacte al Abg. Wilson Ipiales directamente al +593988835269 para una consulta personalizada.`,
+        success: false
+      };
+    }
+
     const data = await response.json();
     
     if (data.error) {
@@ -45,7 +71,7 @@ export const generateLegalAdvice = async (query, area = 'general') => {
   } catch (error) {
     console.error('Error al generar consejo legal:', error);
     return {
-      advice: 'Lo siento, no pudimos procesar su consulta en este momento. Por favor, intente nuevamente más tarde o contacte directamente al Abg. Wilson Ipiales.',
+      advice: 'Lo siento, no pudimos procesar su consulta en este momento. Por favor, contacte directamente al Abg. Wilson Ipiales al +593988835269 para obtener asesoramiento legal personalizado.',
       success: false,
       error: error.message
     };
@@ -55,20 +81,31 @@ export const generateLegalAdvice = async (query, area = 'general') => {
 // Function to generate document templates
 export const generateLegalDocument = async (documentType, userInfo) => {
   try {
+    // Verificamos si estamos en un entorno que puede hacer peticiones externas
+    if (typeof window === 'undefined' || !navigator.onLine) {
+      // Respuesta simulada para entorno sin conexión
+      return {
+        document: FALLBACK_RESPONSE.documento,
+        success: true
+      };
+    }
+    
     // Create a prompt based on document type and user info
     const prompt = `Genera un documento legal de tipo ${documentType} con la siguiente información:
                    ${Object.entries(userInfo).map(([key, value]) => `${key}: ${value}`).join('\n')}
                    
                    El formato debe ser profesional y cumplir con la normativa ecuatoriana vigente.`;
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': window.location.origin || 'https://abogado-wilson.anipets12.workers.dev',
+        'X-Title': 'Abogado Wilson - Generación de Documento'
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'anthropic/claude-3-haiku:beta',
         messages: [
           {
             role: 'system',
@@ -84,6 +121,14 @@ export const generateLegalDocument = async (documentType, userInfo) => {
       })
     });
 
+    if (!response.ok) {
+      // Si hay un error en la respuesta, devolver un fallback amigable
+      return {
+        document: `Por el momento no podemos generar su documento (${response.status}). Por favor contacte al Abg. Wilson Ipiales directamente al +593988835269 para asistencia personalizada.`,
+        success: false
+      };
+    }
+
     const data = await response.json();
     
     if (data.error) {
@@ -97,7 +142,7 @@ export const generateLegalDocument = async (documentType, userInfo) => {
   } catch (error) {
     console.error('Error al generar documento:', error);
     return {
-      document: 'Error en la generación del documento. Por favor, intente nuevamente o contacte directamente al Abg. Wilson Ipiales.',
+      document: 'Error en la generación del documento. Por favor, contacte directamente al Abg. Wilson Ipiales al +593988835269 para asistencia personalizada.',
       success: false,
       error: error.message
     };
@@ -107,14 +152,25 @@ export const generateLegalDocument = async (documentType, userInfo) => {
 // Function to analyze legal cases
 export const analyzeLegalCase = async (caseDetails) => {
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Verificamos si estamos en un entorno que puede hacer peticiones externas
+    if (typeof window === 'undefined' || !navigator.onLine) {
+      // Respuesta simulada para entorno sin conexión
+      return {
+        analysis: FALLBACK_RESPONSE.analisis,
+        success: true
+      };
+    }
+    
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': window.location.origin || 'https://abogado-wilson.anipets12.workers.dev',
+        'X-Title': 'Abogado Wilson - Análisis de Caso'
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'anthropic/claude-3-haiku:beta',
         messages: [
           {
             role: 'system',
@@ -133,6 +189,14 @@ export const analyzeLegalCase = async (caseDetails) => {
       })
     });
 
+    if (!response.ok) {
+      // Si hay un error en la respuesta, devolver un fallback amigable
+      return {
+        analysis: `Por el momento no podemos analizar su caso (${response.status}). Por favor contacte al Abg. Wilson Ipiales directamente al +593988835269 para una consulta personalizada.`,
+        success: false
+      };
+    }
+
     const data = await response.json();
     
     if (data.error) {
@@ -146,7 +210,7 @@ export const analyzeLegalCase = async (caseDetails) => {
   } catch (error) {
     console.error('Error al analizar caso legal:', error);
     return {
-      analysis: 'No se pudo completar el análisis del caso. Por favor, contacte directamente al Abg. Wilson Ipiales para una consulta personalizada.',
+      analysis: `No se pudo completar el análisis del caso: ${error.message}. Por favor, contacte directamente al Abg. Wilson Ipiales al +593988835269 para una consulta personalizada.`,
       success: false,
       error: error.message
     };

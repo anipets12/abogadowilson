@@ -34,9 +34,22 @@ async function handleEvent(event) {
   }
   
   try {
-    // Manejar favicon.ico específicamente
-    if (url.pathname === '/favicon.ico') {
-      return new Response(null, { status: 204 })
+    // Manejar favicon específicamente (tanto .ico como .svg)
+    if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') {
+      // Devolvemos un favicon SVG simple en línea
+      const svgFavicon = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+        <rect width="32" height="32" fill="#1a5fb4"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="20" fill="white">W</text>
+      </svg>`;
+      
+      return new Response(svgFavicon, { 
+        status: 200,
+        headers: {
+          'Content-Type': 'image/svg+xml',
+          'Cache-Control': 'public, max-age=86400',
+          ...corsHeaders
+        }
+      });
     }
     
     // Opciones para servir activos estáticos
@@ -108,7 +121,15 @@ async function handleEvent(event) {
     if (contentType.includes('text/html')) {
       // Injectar script global React para evitar errores de 'React is not defined'
       const originalHtml = await page.text()
-      const scriptTag = `<script>window.React=window.React||{};</script>\n`
+      const scriptTag = `<script>
+      // Configuración global para prevenir errores comunes
+      window.React = window.React || {};
+      // Evitar errores de Turnstile
+      window.turnstileSitekey = "0x4AAAAAABDkl--Sw4n_bwmU";
+      // Compatibilidad para prevenir errores en versiones antiguas
+      window.global = window;
+      </script>
+`
       const modifiedHtml = originalHtml.replace('<head>', `<head>\n${scriptTag}`)
       
       return new Response(modifiedHtml, {
@@ -132,7 +153,15 @@ async function handleEvent(event) {
         const originalHtml = await notFoundResponse.text()
         
         // Modificar el HTML para inyectar script global de React
-        const scriptTag = `<script>window.React=window.React||{};</script>\n`
+        const scriptTag = `<script>
+      // Configuración global para prevenir errores comunes
+      window.React = window.React || {};
+      // Evitar errores de Turnstile
+      window.turnstileSitekey = "0x4AAAAAABDkl--Sw4n_bwmU";
+      // Compatibilidad para prevenir errores en versiones antiguas
+      window.global = window;
+      </script>
+`
         const modifiedHtml = originalHtml.replace('<head>', `<head>\n${scriptTag}`)
         
         const headers = new Headers(notFoundResponse.headers)
@@ -163,18 +192,35 @@ async function handleEvent(event) {
     if (url.pathname.includes('/images/') || url.pathname.endsWith('.jpg') || 
         url.pathname.endsWith('.png') || url.pathname.endsWith('.svg')) {
         
-      // Devolver una imagen vacía transparente en lugar de un 404
-      // Esto evita errores visibles en la consola
+      // Intentamos generar un placeholder basado en la URL
+      let placeholderImage;
+      let contentType;
+      
+      if (url.pathname.endsWith('.svg')) {
+        // SVG placeholder con el nombre del archivo
+        const filename = url.pathname.split('/').pop().split('.')[0];
+        placeholderImage = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+          <rect width="200" height="200" fill="#f0f0f0"/>
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="16" fill="#888">${filename}</text>
+        </svg>`;
+        contentType = 'image/svg+xml';
+      } else {
+        // Para JPG/PNG usamos un GIF transparente base64
+        placeholderImage = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        contentType = 'image/gif';
+      }
+      
       return new Response(
-        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', // GIF transparente en base64
+        placeholderImage, 
         { 
           status: 200, 
           headers: { 
-            'Content-Type': 'image/gif',
+            'Content-Type': contentType,
+            'Cache-Control': 'no-store',
             ...corsHeaders
           }
         }
-      )
+      );
     }
     
     // Para recursos estáticos no encontrados

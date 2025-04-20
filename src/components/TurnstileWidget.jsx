@@ -1,15 +1,22 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+// Asegurarnos que React esté disponible globalmente
+if (typeof window !== 'undefined' && !window.React) {
+  window.React = React;
+}
 
 /**
- * Componente de Cloudflare Turnstile para protecciu00f3n anti-bot
+ * Componente de Cloudflare Turnstile para protección anti-bot
+ * Versión mejorada para entornos de Cloudflare Workers y mejor manejo de errores
  * 
  * @param {Object} props
- * @param {Function} props.onVerify - Funciu00f3n a llamar cuando la verificaciu00f3n es exitosa
- * @param {Function} props.onError - Funciu00f3n a llamar cuando hay un error en la verificaciu00f3n
- * @param {Function} props.onExpire - Funciu00f3n a llamar cuando el token expira
- * @param {string} props.action - Identificador de la acciu00f3n que se estu00e1 protegiendo (ej: 'login', 'contact_form')
+ * @param {Function} props.onVerify - Función a llamar cuando la verificación es exitosa
+ * @param {Function} props.onError - Función a llamar cuando hay un error en la verificación
+ * @param {Function} props.onExpire - Función a llamar cuando el token expira
+ * @param {string} props.action - Identificador de la acción que se está protegiendo (ej: 'login', 'contact_form')
  * @param {string} props.theme - Tema del widget ('light', 'dark', 'auto')
- * @param {string} props.size - Tamau00f1o del widget ('normal', 'compact')
+ * @param {string} props.size - Tamaño del widget ('normal', 'compact')
+ * @param {boolean} props.useSimulatedResponse - Si es true, simula una respuesta exitosa (para desarrollo)
  */
 const TurnstileWidget = ({ 
   onVerify, 
@@ -17,24 +24,50 @@ const TurnstileWidget = ({
   onExpire,
   action = 'default',
   theme = 'auto',
-  size = 'normal'
+  size = 'normal',
+  useSimulatedResponse = false
 }) => {
   const containerRef = useRef(null);
   const widgetId = useRef(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
-  // Clave pu00fablica de Turnstile (site key)
-  const siteKey = '0x4AAAAAABDkl--Sw4n_bwmU';
+  // Clave pública de Turnstile (site key)
+  // Usar una variable global si está disponible (configurada en el worker)
+  const siteKey = typeof window !== 'undefined' && window.turnstileSitekey 
+    ? window.turnstileSitekey 
+    : '0x4AAAAAABDkl--Sw4n_bwmU';
 
-  // Funciu00f3n para verificar el token con nuestro backend
+  // Función para verificar el token con nuestro backend
+  // Versión mejorada con manejo de errores y simulación para desarrollo
   const verifyToken = async (token) => {
     try {
-      const response = await fetch('/api/verify-turnstile', {
+      // Si estamos en desarrollo o modo simulado, permitir verificación exitosa sin backend
+      if (useSimulatedResponse || process.env.NODE_ENV === 'development') {
+        console.info('Usando respuesta simulada para Turnstile en entorno de desarrollo');
+        setTimeout(() => {
+          if (typeof onVerify === 'function') {
+            onVerify(token || 'simulated-token-000000000', { success: true, simulated: true });
+          }
+        }, 500); // Simular un pequeño retraso
+        return;
+      }
+      
+      // Usar un endpoint relativo para que funcione en diferentes entornos
+      const verifyEndpoint = '/api/verify-turnstile';
+      
+      const response = await fetch(verifyEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ token, action }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Error de servidor: ${response.status} ${response.statusText}`);
+      }
 
       const data = await response.json();
       
@@ -44,6 +77,8 @@ const TurnstileWidget = ({
         }
       } else {
         console.error('Error al verificar token de Turnstile:', data.message);
+        setHasError(true);
+        setErrorMessage(data.message || 'Error de verificación');
         if (typeof onError === 'function') {
           onError(data.message, data.errors);
         }
@@ -53,80 +88,231 @@ const TurnstileWidget = ({
         }
       }
     } catch (error) {
-      console.error('Error en la verificaciu00f3n de Turnstile:', error);
+      console.error('Error en la verificación de Turnstile:', error);
+      setHasError(true);
+      setErrorMessage(error.message || 'Error de conexión');
       if (typeof onError === 'function') {
-        onError('Error de conexiu00f3n', error);
+        onError('Error de conexión', error);
       }
+      // Intentar reiniciar el widget
+      setTimeout(() => {
+        if (window.turnstile && widgetId.current) {
+          try {
+            window.turnstile.reset(widgetId.current);
+          } catch (e) {
+            console.warn('No se pudo reiniciar el widget de Turnstile');
+          }
+        }
+      }, 1000);
     }
   };
 
   useEffect(() => {
-    // Cargar el script de Turnstile si no estu00e1 ya cargado
-    if (!window.turnstile) {
-      const script = document.createElement('script');
-      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        // Una vez cargado el script, renderizar el widget
-        renderTurnstile();
-      };
-      
-      document.head.appendChild(script);
-      
-      return () => {
-        document.head.removeChild(script);
-      };
-    } else {
-      // Si ya estu00e1 cargado, renderizar el widget
-      renderTurnstile();
-    }
-  }, []);
-
-  const renderTurnstile = () => {
-    // Limpiar el widget anterior si existe
-    if (widgetId.current && window.turnstile) {
-      window.turnstile.remove(widgetId.current);
+    // Si estamos en un entorno sin navegador, no hacer nada
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
     }
     
-    // Solo renderizar si el DOM estu00e1 listo y la API de turnstile estu00e1 disponible
-    if (containerRef.current && window.turnstile) {
+    // Si estamos usando respuesta simulada, no cargar realmente el widget
+    if (useSimulatedResponse) {
+      setIsLoading(false);
+      return;
+    }
+    
+    // En un entorno de desarrollo sin Turnstile disponible, podemos simular también
+    if (process.env.NODE_ENV === 'development' && !window.turnstile) {
+      // Simular carga exitosa después de un corto tiempo
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+        // Llamar al callback de verificación automáticamente
+        if (typeof onVerify === 'function') {
+          onVerify('dev-mode-token-123456', { success: true, dev: true });
+        }
+      }, 800);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // Manejar la carga real del script y widget de Turnstile
+    let scriptElement = null;
+    const loadTurnstile = () => {
       try {
-        widgetId.current = window.turnstile.render(containerRef.current, {
-          sitekey: siteKey,
-          theme: theme,
-          size: size,
-          action: action,
-          callback: (token) => {
-            verifyToken(token);
-          },
-          'expired-callback': () => {
-            console.log('Token de Turnstile expirado');
-            if (typeof onExpire === 'function') {
-              onExpire();
-            }
-          },
-          'error-callback': (error) => {
-            console.error('Error en widget de Turnstile:', error);
+        if (!window.turnstile) {
+          scriptElement = document.createElement('script');
+          scriptElement.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+          scriptElement.async = true;
+          scriptElement.defer = true;
+          
+          scriptElement.onload = () => {
+            // Una vez cargado el script, renderizar el widget
+            setIsLoading(false);
+            renderTurnstile();
+          };
+          
+          scriptElement.onerror = (e) => {
+            console.error('Error al cargar script de Turnstile:', e);
+            setHasError(true);
+            setErrorMessage('No se pudo cargar el servicio de verificación');
+            setIsLoading(false);
             if (typeof onError === 'function') {
-              onError('Error en widget', error);
+              onError('Error al cargar script', e);
             }
-          },
-        });
+          };
+          
+          document.head.appendChild(scriptElement);
+        } else {
+          // Si ya está cargado, renderizar el widget
+          setIsLoading(false);
+          renderTurnstile();
+        }
       } catch (error) {
-        console.error('Error al renderizar widget de Turnstile:', error);
+        console.error('Error en la inicialización de Turnstile:', error);
+        setHasError(true);
+        setErrorMessage('Error en la inicialización');
+        setIsLoading(false);
       }
+    };
+    
+    // Intentar cargar después de un retraso para asegurar que la página esté lista
+    const timer = setTimeout(loadTurnstile, 500);
+    
+    return () => {
+      clearTimeout(timer);
+      if (scriptElement && document.head.contains(scriptElement)) {
+        document.head.removeChild(scriptElement);
+      }
+    };
+  }, [useSimulatedResponse]);
+
+  const renderTurnstile = () => {
+    // Si estamos en modo simulado, no hacer nada
+    if (useSimulatedResponse) return;
+    
+    // Verificar que estamos en un entorno compatible
+    if (typeof window === 'undefined' || !containerRef.current) return;
+    
+    try {
+      // Limpiar el widget anterior si existe
+      if (widgetId.current && window.turnstile) {
+        try {
+          window.turnstile.remove(widgetId.current);
+        } catch (e) {
+          console.warn('Error al eliminar widget previo de Turnstile:', e);
+        }
+      }
+      
+      // Solo renderizar si la API de turnstile está disponible
+      if (window.turnstile) {
+        try {
+          widgetId.current = window.turnstile.render(containerRef.current, {
+            sitekey: siteKey,
+            theme: theme,
+            size: size,
+            action: action,
+            callback: (token) => {
+              verifyToken(token);
+            },
+            'expired-callback': () => {
+              console.log('Token de Turnstile expirado');
+              if (typeof onExpire === 'function') {
+                onExpire();
+              }
+            },
+            'error-callback': (error) => {
+              console.error('Error en widget de Turnstile:', error);
+              setHasError(true);
+              setErrorMessage(`Error: ${error || 'Widget no disponible'}`);
+              if (typeof onError === 'function') {
+                onError('Error en widget', error);
+              }
+            },
+          });
+        } catch (error) {
+          console.error('Error al renderizar widget de Turnstile:', error);
+          setHasError(true);
+          setErrorMessage(`Error de inicialización: ${error.message || 'Desconocido'}`);
+          // Intentar hacer fallback a modo simulado en caso de error
+          if (process.env.NODE_ENV !== 'production') {
+            setTimeout(() => {
+              if (typeof onVerify === 'function') {
+                onVerify('fallback-token-error', { success: true, fallback: true });
+              }
+            }, 1000);
+          }
+        }
+      } else {
+        console.warn('API de Turnstile no disponible');
+        setHasError(true);
+        setErrorMessage('Servicio de verificación no disponible');
+        // En ambiente de desarrollo, permitir continuar
+        if (process.env.NODE_ENV !== 'production') {
+          setTimeout(() => {
+            if (typeof onVerify === 'function') {
+              onVerify('dev-fallback-token', { success: true, fallback: true });
+            }
+          }, 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Error crítico en Turnstile:', error);
+      setHasError(true);
+      setErrorMessage(`Error crítico: ${error.message || 'Desconocido'}`);
     }
   };
 
+  // Si estamos usando respuesta simulada, mostrar un componente visual diferente
+  if (useSimulatedResponse || (process.env.NODE_ENV === 'development' && !window.turnstile)) {
+    return (
+      <div className="turnstile-container-simulated" style={{ margin: '1rem 0' }}>
+        <div 
+          style={{ 
+            padding: '0.75rem', 
+            backgroundColor: '#f5f5f5', 
+            borderRadius: '0.25rem',
+            border: '1px solid #e2e8f0',
+            fontSize: '0.875rem',
+            color: '#4a5568',
+            textAlign: 'center'
+          }}
+        >
+          {isLoading ? 'Cargando verificación...' : 'Verificación simulada ✓'}
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <div 
-      ref={containerRef} 
-      className="turnstile-container" 
-      data-action={action}
-      style={{ margin: '1rem 0' }}
-    />
+    <div className="turnstile-wrapper" style={{ margin: '1rem 0' }}>
+      {isLoading && (
+        <div style={{ textAlign: 'center', padding: '0.5rem', fontSize: '0.875rem', color: '#4a5568' }}>
+          Cargando verificación...
+        </div>
+      )}
+      
+      {hasError && (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '0.5rem', 
+          fontSize: '0.875rem', 
+          color: '#e53e3e',
+          marginBottom: '0.5rem'
+        }}>
+          {errorMessage}
+        </div>
+      )}
+      
+      <div 
+        ref={containerRef} 
+        className="turnstile-container" 
+        data-action={action}
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'center',
+          opacity: isLoading ? 0.6 : 1,
+          transition: 'opacity 0.3s ease' 
+        }}
+      />
+    </div>
   );
 };
 

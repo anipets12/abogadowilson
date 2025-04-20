@@ -3,8 +3,15 @@
  * 
  * Este componente soluciona los problemas de "TypeError: e is undefined" en Cloudflare Workers
  * proporcionando una interfaz segura para react-helmet-async.
+ * 
+ * Versión mejorada para prevenir errores en Workers sin React disponible
  */
 import React from 'react';
+
+// Solucionamos el problema de React no disponible
+if (typeof window !== 'undefined' && !window.React) {
+  window.React = React;
+}
 
 // Importación condicional para evitar errores si react-helmet-async falla
 let Helmet;
@@ -21,6 +28,16 @@ try {
  * HelmetWrapper - Wrapper seguro para Helmet que previene errores en Cloudflare Workers
  */
 const HelmetWrapper = ({ title, description, image, url, children }) => {
+  // Verificamos si estamos en un entorno donde podría fallar
+  const isBrowser = typeof window !== 'undefined';
+  const isSafeEnvironment = isBrowser && typeof document !== 'undefined';
+  
+  // Si no estamos en un entorno seguro, solo devolvemos los children
+  if (!isSafeEnvironment) {
+    console.warn('HelmetWrapper: No estamos en un entorno seguro, saltando SEO');
+    return <>{children}</>;
+  }
+  
   try {
     return (
       <Helmet>
@@ -38,6 +55,12 @@ const HelmetWrapper = ({ title, description, image, url, children }) => {
         {description && <meta name="twitter:description" content={description} />}
         {image && <meta name="twitter:image" content={image} />}
         {image && <meta name="twitter:card" content="summary_large_image" />}
+        
+        {/* Metatags para SEO básico */}
+        <meta property="og:type" content="website" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="robots" content="index, follow" />
+        <meta name="author" content="Abg. Wilson Alexander Ipiales Guerrón" />
         
         {/* Cualquier otro children pasado al componente */}
         {children}
