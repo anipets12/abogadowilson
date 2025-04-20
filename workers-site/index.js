@@ -5,6 +5,10 @@ import { handleSearches } from './api/searches'
 import { handleLegalQueries } from './api/legal-queries'
 import { handleBlogRequests } from './api/blog'
 
+// Importar los nuevos manejadores desde functions/api
+import { onRequest as handleConfigRequest } from '../functions/api/config.js'
+import { onRequest as handleProxyRequest } from '../functions/api/proxy.js'
+
 /**
  * Worker para servir sitio estático SPA con Cloudflare Workers
  * Versión mejorada con soporte de CORS, manejo de errores React, y headers optimizados
@@ -251,6 +255,16 @@ async function handleEvent(event) {
 async function handleApiRequest(event, url) {
   const request = event.request;
   
+  // Configuración endpoint - Resuelve la configuración para la aplicación
+  if (url.pathname.startsWith('/api/config')) {
+    return handleConfigRequest(event);
+  }
+  
+  // Proxy endpoint - Mecanismo general para evitar problemas CORS
+  if (url.pathname.startsWith('/api/proxy')) {
+    return handleProxyRequest(event);
+  }
+  
   // Proxy Supabase - Interceptar todas las solicitudes a /api/supabase/
   if (url.pathname.startsWith('/api/supabase')) {
     // Extraer el path relativo de Supabase quitando /api/supabase
@@ -288,11 +302,26 @@ async function handleApiRequest(event, url) {
     return handleBlogRequests(request);
   }
 
-  // Default response for unhandled API routes
-  return new Response(JSON.stringify({ error: 'API route not found', path: url.pathname }), {
+  // Respuesta detallada para rutas API no encontradas
+  return new Response(JSON.stringify({
+    error: 'API route not found',
+    path: url.pathname,
+    availableRoutes: [
+      '/api/config', 
+      '/api/proxy', 
+      '/api/supabase/*', 
+      '/api/check-connection',
+      '/api/chat',
+      '/api/verify-turnstile',
+      '/api/data/searches',
+      '/api/data/legal-queries',
+      '/api/blog/*'
+    ]
+  }), {
     status: 404,
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      ...corsHeaders
     },
   });
 }
