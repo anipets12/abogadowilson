@@ -1,0 +1,150 @@
+/// <reference path="./cloudflare.d.ts" />
+import { getAssetFromKV } from '@cloudflare/kv-asset-handler'
+
+export interface Env {
+  ASSETS: KVNamespace
+  CORS_ORIGIN: string
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400',
+};
+
+// Lista de rutas SPA que deben redirigir a index.html
+const SPA_ROUTES = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/profile',
+  '/dashboard',
+  '/services',
+  '/contact',
+  '/blog',
+  '/ebooks',
+  '/forum',
+  '/certificates',
+  '/sponsorships',
+  '/afiliados',
+  '/appointments',
+  '/auth',
+  '/legal'
+];
+
+async function handleOptions(request: Request) {
+  return new Response(null, {
+    headers: {
+      ...corsHeaders,
+      'Allow': 'GET, POST, PUT, DELETE, OPTIONS',
+    },
+  });
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const securityHeaders = {
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co https://*.turso.io https://api.notion.com https://challenges.cloudflare.com https://*.n8n.cloud",
+      ...corsHeaders
+    }
+
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return handleOptions(request)
+    }
+
+    try {
+      const url = new URL(request.url);
+      
+      // Intentar servir el archivo estático directamente
+      try {
+        const options = {
+          // En plan gratuito, no necesitamos especificar un manifiesto explícito
+          // ASSET_MANIFEST: {},
+          ASSET_NAMESPACE: env.ASSETS,
+          // Agregar opciones de caching
+          cacheControl: {
+            browserTTL: 60 * 60 * 24, // 1 día
+            edgeTTL: 60 * 60 * 24 * 30, // 30 días
+            bypassCache: false,
+          },
+        };
+        
+        const page = await getAssetFromKV(request, options);
+
+        // Establecer los headers de seguridad
+        const response = new Response(page.body, page);
+        response.headers.set('X-XSS-Protection', '1; mode=block');
+        Object.entries(securityHeaders).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+
+        return response;
+      } catch (e) {
+        console.error('Error al servir archivo estático:', e);
+        
+        // Verificar si la ruta actual debe ser manejada por React Router
+        const { pathname } = new URL(request.url);
+        const isSpaRoute = SPA_ROUTES.some(route => 
+          pathname === route || pathname.startsWith(`${route}/`)
+        );
+        
+        // También considerar rutas sin extensión que no son /api/
+        const hasExtension = /\.\w+$/.test(pathname);
+        const shouldServeIndexHtml = isSpaRoute || (!hasExtension && pathname !== '/');
+        
+        // Si es una ruta SPA, servir index.html
+        if (shouldServeIndexHtml) {
+          console.log(`Sirviendo index.html para ruta SPA: ${pathname}`);
+          const indexRequest = new Request(new URL('/index.html', request.url).toString(), request);
+          
+          try {
+            const options = {
+              ASSET_NAMESPACE: env.ASSETS,
+              cacheControl: {
+                browserTTL: 60 * 60 * 24, // 1 día
+                edgeTTL: 60 * 60 * 24 * 30, // 30 días
+                bypassCache: false,
+              },
+            };
+            
+            const notFoundResponse = await getAssetFromKV(indexRequest, options);
+
+            const response = new Response(notFoundResponse.body, {
+              ...notFoundResponse,
+              status: 200, // Devolvemos 200 para SPA routing
+            });
+
+            Object.entries(securityHeaders).forEach(([key, value]) => {
+              response.headers.set(key, value);
+            });
+
+            return response;
+          } catch (indexError) {
+            console.error('Error al servir index.html para SPA routing:', indexError);
+            return new Response('Página no encontrada', { 
+              status: 404,
+              headers: securityHeaders
+            });
+          }
+        }
+        
+        return new Response('Archivo no encontrado', { 
+          status: 404, 
+          headers: securityHeaders 
+        });
+      }
+    } catch (error) {
+      console.error('Error general en el worker:', error);
+      return new Response('Error interno del servidor', {
+        status: 500,
+        headers: securityHeaders,
+      });
+    }
+  },
+};
