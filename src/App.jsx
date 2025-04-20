@@ -95,14 +95,11 @@ const Seguridad = lazy(() => import('./components/Seguridad'));
 */
 
 // Servicios específicos
-// Comentado temporalmente para permitir la compilación
-/*
-const PenalService = lazy(() => import('./components/Services/Penal'));
-const CivilService = lazy(() => import('./components/Services/Civil'));
-const ComercialService = lazy(() => import('./components/Services/Comercial'));
-const TransitoService = lazy(() => import('./components/Services/Transito'));
-const AduanasService = lazy(() => import('./components/Services/Aduanas'));
-*/
+const Penal = lazy(() => import('./components/Services/Penal'));
+const Civil = lazy(() => import('./components/Services/Civil'));
+const Comercial = lazy(() => import('./components/Services/Comercial'));
+const Transito = lazy(() => import('./components/Services/Transito'));
+const Aduanas = lazy(() => import('./components/Services/Aduanas'));
 
 // Pagos y checkouts
 // Comentado temporalmente para permitir la compilación
