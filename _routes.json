@@ -18,31 +18,27 @@
       "dest": "/manifest.json"
     },
     {
-      "src": "/api/config",
-      "dest": "/api/config"
+      "src": "/api/.*",
+      "dest": "/index.html"
     },
     {
-      "src": "/api/config/(.*)",
-      "dest": "/api/config"
-    },
-    {
-      "src": "/api/proxy",
-      "dest": "/api/proxy"
-    },
-    {
-      "src": "/api/proxy/(.*)",
-      "dest": "/api/proxy?url=$1"
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
     },
     {
       "src": "/assets/(.*)",
       "dest": "/assets/$1"
     },
     {
-      "src": "/(.*)\\.(.*)",
-      "dest": "/$1.$2"
+      "src": "/robots.txt",
+      "dest": "/robots.txt"
     },
     {
-      "src": "/(.*)",
+      "src": "/.*\\.(js|css|png|jpg|gif|svg|ico|json|woff|woff2|ttf|eot)",
+      "dest": "/$&"
+    },
+    {
+      "src": "/.*",
       "dest": "/index.html"
     }
   ]
