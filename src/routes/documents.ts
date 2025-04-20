@@ -32,7 +32,12 @@ export async function handleDocumentRoutes(request: Request, services: Services)
 
     // POST /api/documents - Crear nuevo documento
     if (request.method === 'POST' && path === '/') {
-      const body = await request.json()
+      const body = await request.json() as {
+        title: string;
+        content: string;
+        type: string;
+        userId: string;
+      }
       const document = await prisma.document.create({
         data: {
           title: body.title,
@@ -88,7 +93,11 @@ export async function handleDocumentRoutes(request: Request, services: Services)
     // PUT /api/documents/:id - Actualizar documento
     if (request.method === 'PUT' && path.match(/^\/[0-9]+$/)) {
       const id = parseInt(path.split('/')[1])
-      const body = await request.json()
+      const body = await request.json() as {
+        title: string;
+        content: string;
+        type: string;
+      }
       
       const document = await prisma.document.update({
         where: { id },

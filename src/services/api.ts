@@ -1,12 +1,12 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { supabase } from '../config/database';
-import { getRuntime } from '@cloudflare/workers-runtime-types'
+// import { getRuntime } from '@cloudflare/workers-runtime-types' - Removed due to missing type
 import type { ApiResponse, HealthCheck } from '../types';
 
-const api = axios.create({
+const api = axios?.create ? axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   timeout: 10000,
-});
+}) : axios;
 
 api.interceptors.request.use(async (config) => {
   const session = await supabase.auth.getSession();
@@ -18,7 +18,7 @@ api.interceptors.request.use(async (config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
+  async (error: any) => {
     if (error.response?.status === 401) {
       await supabase.auth.signOut();
       window.location.href = '/login';
@@ -40,15 +40,15 @@ async function checkHealth(env: any): Promise<HealthCheck> {
     services.kv = !!(await env.ASSETS.get('test-key'));
     
     return {
-      status: Object.values(services).every(Boolean) ? 'healthy' : 'unhealthy',
+      status: Object.values(services).every(Boolean) ? 'ok' : 'error',
       services,
-      timestamp: Date.now()
+      timestamp: new Date().toISOString()
     };
   } catch (error) {
     return {
-      status: 'unhealthy',
+      status: 'error',
       services,
-      timestamp: Date.now()
+      timestamp: new Date().toISOString()
     };
   }
 }

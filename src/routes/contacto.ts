@@ -23,7 +23,13 @@ export async function handleContactRoutes(request: Request, services: Services):
   try {
     // POST /api/contacto - Enviar formulario de contacto
     if (request.method === 'POST' && path === '/') {
-      const body = await request.json()
+      const body = await request.json() as {
+        nombre: string;
+        email: string;
+        telefono: string;
+        asunto?: string;
+        mensaje?: string;
+      }
       
       // Validar campos requeridos
       if (!body.nombre || !body.email || !body.telefono) {
