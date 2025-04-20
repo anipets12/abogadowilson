@@ -63,6 +63,11 @@ async function handleEvent(event) {
   const url = new URL(event.request.url)
   const request = event.request
   
+  // Manejar solicitudes API
+  if (url.pathname.startsWith('/api/')) {
+    return handleApiRequest(event, url);
+  }
+  
   // Manejar favicon específicamente (tanto .ico como .svg)
   if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') {
     // Devolvemos un favicon SVG mejorado en línea
@@ -124,10 +129,11 @@ async function handleEvent(event) {
   }
   
   // Intenta obtener el activo desde KV
-  const page = await getAssetFromKV(event, options)
-  
-  // Devolver activo con headers optimizados
-  const response = new Response(page.body, page)
+  try {
+    const page = await getAssetFromKV(event, options)
+    
+    // Devolver activo con headers optimizados
+    const response = new Response(page.body, page)
   
   // Headers de seguridad
   response.headers.set('X-XSS-Protection', '1; mode=block')
@@ -171,6 +177,46 @@ async function handleEvent(event) {
   }
   
   return response
+  } catch (error) {
+    // Manejar errores de assets no encontrados
+    console.error(`Error al obtener asset: ${url.pathname}`, error);
+    
+    // Si es una imagen, generar un placeholder
+    if (url.pathname.includes('/images/') || 
+        url.pathname.endsWith('.jpg') || 
+        url.pathname.endsWith('.png') || 
+        url.pathname.endsWith('.svg') ||
+        url.pathname.endsWith('.gif') ||
+        url.pathname.endsWith('.webp')) {
+      return handleMissingImage(url);
+    }
+    
+    // Para rutas de SPA, devolver index.html para que React Router maneje la ruta
+    if (!url.pathname.includes('.')) {
+      try {
+        const indexPage = await getAssetFromKV(
+          event,
+          {
+            ...options,
+            mapRequestToAsset: () => new Request(`${url.origin}/index.html`, request)
+          }
+        );
+        return new Response(indexPage.body, indexPage);
+      } catch (e) {
+        // Si falla todo, mostrar error 404
+        return new Response('Página no encontrada', {
+          status: 404,
+          headers: { 'Content-Type': 'text/plain', ...corsHeaders }
+        });
+      }
+    }
+    
+    // Para otros recursos no encontrados
+    return new Response('Recurso no encontrado', {
+      status: 404,
+      headers: { 'Content-Type': 'text/plain', ...corsHeaders }
+    });
+  }
 }
 
 // Manejar solicitudes API
@@ -189,11 +235,14 @@ async function handleApiRequest(event, url) {
     return checkSupabaseConnection();
   }
   
-  // Endpoint para comprobar la conectividad con Supabase
-  if (pathname === '/api/check-connection') {
-    return new Response(JSON.stringify({ connected: true, timestamp: Date.now() }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+  // API de chat
+  if (url.pathname === '/api/chat') {
+    return handleChatRequest(request);
+  }
+  
+  // API de verificación Turnstile
+  if (url.pathname === '/api/verify-turnstile') {
+    return handleTurnstileVerification(request);
   }
 
   // Default response for unhandled API routes
@@ -267,48 +316,37 @@ async function handleTurnstileVerification(request) {
   }
 }
 
-// Código movido al archivo api/chat.js para mejor organización
-    if (url.pathname.includes('/images/') || url.pathname.endsWith('.jpg') || 
-        url.pathname.endsWith('.png') || url.pathname.endsWith('.svg')) {
-        
-      // Intentamos generar un placeholder basado en la URL
-      let placeholderImage;
-      let contentType;
-      
-      if (url.pathname.endsWith('.svg')) {
-        // SVG placeholder con el nombre del archivo
-        const filename = url.pathname.split('/').pop().split('.')[0];
-        placeholderImage = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-          <rect width="200" height="200" fill="#f0f0f0"/>
-          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="16" fill="#888">${filename}</text>
-        </svg>`;
-        contentType = 'image/svg+xml';
-      } else {
-        // Para JPG/PNG usamos un GIF transparente base64
-        placeholderImage = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-        contentType = 'image/gif';
-      }
-      
-      return new Response(
-        placeholderImage, 
-        { 
-          status: 200, 
-          headers: { 
-            'Content-Type': contentType,
-            'Cache-Control': 'no-store',
-            ...corsHeaders
-          }
-        }
-      );
-    }
-    
-    // Para recursos estáticos no encontrados
-    return new Response('Recurso no encontrado', { 
-      status: 404,
-      headers: { 
-        'Content-Type': 'text/plain',
-        ...corsHeaders 
-      }
-    })
+/**
+ * Maneja solicitudes de imágenes no encontradas generando placeholders
+ */
+async function handleMissingImage(url) {
+  // Intentamos generar un placeholder basado en la URL
+  let placeholderImage;
+  let contentType;
+  
+  if (url.pathname.endsWith('.svg')) {
+    // SVG placeholder con el nombre del archivo
+    const filename = url.pathname.split('/').pop().split('.')[0];
+    placeholderImage = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="#f0f0f0"/>
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="16" fill="#888">${filename}</text>
+    </svg>`;
+    contentType = 'image/svg+xml';
+  } else {
+    // Para JPG/PNG usamos un GIF transparente base64
+    placeholderImage = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    contentType = 'image/gif';
   }
+  
+  return new Response(
+    placeholderImage, 
+    { 
+      status: 200, 
+      headers: { 
+        'Content-Type': contentType,
+        'Cache-Control': 'no-store',
+        ...corsHeaders
+      }
+    }
+  );
 }
