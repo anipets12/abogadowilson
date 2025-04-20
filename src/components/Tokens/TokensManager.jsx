@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { FaCoins, FaShoppingCart, FaHistory, FaInfoCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { FaCoins, FaShoppingCart, FaHistory, FaInfoCircle, FaExclamationTriangle, FaCreditCard, FaCheck, FaClock } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 import TurnstileWidget from '../TurnstileWidget';
+
+// Importar servicios de tokens mejorados
+import { tokenService, tokenPlans, tokenServices } from '../../services/tokenService';
+
+// Importar HelmetWrapper para metadatos
+import HelmetWrapper from '../Common/HelmetWrapper';
 
 const TokensManager = () => {
   const { user } = useAuth();
@@ -19,72 +25,97 @@ const TokensManager = () => {
   useEffect(() => {
     if (user) {
       fetchUserTokens();
-      fetchTokenPackages();
       fetchTransactionHistory();
+      
+      // Usar los planes de token definidos en el servicio
+      setPackages(tokenPlans);
+      setLoading(false);
     }
   }, [user]);
   
   const fetchUserTokens = async () => {
     try {
-      const response = await fetch('/api/tokens/balance', {
-        headers: {
-          'Authorization': `Bearer ${user?.token}`
-        }
-      });
+      // Usar el servicio de tokens mejorado
+      const result = await tokenService.getUserTokens(user.id);
       
-      if (!response.ok) throw new Error('Error al obtener saldo de tokens');
-      
-      const data = await response.json();
-      setTokens(data.balance);
+      if (result.success) {
+        setTokens(result.tokens);
+      } else {
+        throw new Error(result.error?.message || 'Error al obtener saldo de tokens');
+      }
     } catch (error) {
       console.error('Error fetching tokens:', error);
+      toast.error('No se pudo obtener tu saldo de tokens');
       // Valor de fallback para desarrollo
-      setTokens(50);
+      setTokens(3);
     }
   };
   
-  const fetchTokenPackages = async () => {
-    try {
-      const response = await fetch('/api/tokens/packages');
-      
-      if (!response.ok) throw new Error('Error al obtener paquetes de tokens');
-      
-      const data = await response.json();
-      setPackages(data);
-    } catch (error) {
-      console.error('Error fetching token packages:', error);
-      // Paquetes de fallback para desarrollo
-      setPackages([
-        { id: 1, name: 'Paquete Básico', tokens: 50, price: 15.99, popular: false },
-        { id: 2, name: 'Paquete Estándar', tokens: 120, price: 29.99, popular: true },
-        { id: 3, name: 'Paquete Premium', tokens: 300, price: 59.99, popular: false },
-        { id: 4, name: 'Paquete Empresarial', tokens: 1000, price: 149.99, popular: false }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // No necesitamos fetchTokenPackages ya que los paquetes vienen directamente del servicio
   
   const fetchTransactionHistory = async () => {
     try {
-      const response = await fetch('/api/tokens/transactions', {
-        headers: {
-          'Authorization': `Bearer ${user?.token}`
+      // Usar el servicio de tokens mejorado
+      const result = await tokenService.getTokenHistory(user.id);
+      
+      if (result.success) {
+        // Convertir los datos al formato esperado por el componente
+        const formattedHistory = [];
+        
+        // Procesar transacciones (recargas)
+        if (result.transactions && result.transactions.length > 0) {
+          result.transactions.forEach(transaction => {
+            formattedHistory.push({
+              id: transaction.id,
+              type: transaction.payment_method === 'free' ? 'bonus' : 'purchase',
+              amount: transaction.tokens_added,
+              balance: transaction.balance_after || tokens,
+              description: `${transaction.payment_method === 'free' ? 'Tokens gratuitos' : 
+                           `Compra de ${transaction.tokens_added} tokens`} - ${transaction.plan_id.toUpperCase()}`,
+              date: transaction.created_at
+            });
+          });
         }
-      });
-      
-      if (!response.ok) throw new Error('Error al obtener historial de transacciones');
-      
-      const data = await response.json();
-      setTransactionHistory(data);
+        
+        // Procesar usos de tokens
+        if (result.usage && result.usage.length > 0) {
+          result.usage.forEach(usage => {
+            // Encontrar información del servicio
+            const serviceInfo = tokenServices[usage.service_id] || { name: 'Servicio desconocido' };
+            
+            formattedHistory.push({
+              id: `usage-${usage.id}`,
+              type: 'usage',
+              amount: -usage.tokens_used,
+              balance: usage.balance_after || tokens,
+              description: `${serviceInfo.name} (${usage.tokens_used} tokens)`,
+              date: usage.used_at
+            });
+          });
+        }
+        
+        // Ordenar por fecha, más reciente primero
+        formattedHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        setTransactionHistory(formattedHistory);
+      } else {
+        throw new Error(result.error?.message || 'Error al obtener historial de transacciones');
+      }
     } catch (error) {
       console.error('Error fetching transaction history:', error);
+      
       // Historia de transacciones de fallback para desarrollo
+      const now = new Date();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const lastWeek = new Date(now);
+      lastWeek.setDate(lastWeek.getDate() - 7);
+      
       setTransactionHistory([
-        { id: 1, type: 'purchase', amount: 50, balance: 50, description: 'Compra de paquete básico', date: '2025-04-15T10:30:00' },
-        { id: 2, type: 'usage', amount: -5, balance: 45, description: 'Consulta legal express', date: '2025-04-16T14:15:00' },
-        { id: 3, type: 'usage', amount: -10, balance: 35, description: 'Descarga de documento legal', date: '2025-04-17T09:45:00' },
-        { id: 4, type: 'bonus', amount: 15, balance: 50, description: 'Bono por referido', date: '2025-04-18T16:20:00' }
+        { id: 1, type: 'purchase', amount: 5, balance: 5, description: 'Compra de Plan Básico', date: lastWeek.toISOString() },
+        { id: 2, type: 'usage', amount: -1, balance: 4, description: 'Consulta legal express', date: yesterday.toISOString() },
+        { id: 3, type: 'usage', amount: -2, balance: 2, description: 'Documento legal', date: yesterday.toISOString() },
+        { id: 4, type: 'bonus', amount: 3, balance: 5, description: 'Tokens de nuevo usuario', date: lastWeek.toISOString() }
       ]);
     }
   };
@@ -100,7 +131,7 @@ const TokensManager = () => {
   };
   
   const handlePurchase = async () => {
-    if (!turnstileVerified) {
+    if (!turnstileVerified && process.env.NODE_ENV === 'production') {
       toast.error('Por favor, complete la verificación de seguridad');
       return;
     }
@@ -112,6 +143,16 @@ const TokensManager = () => {
     
     try {
       setProcessing(true);
+      
+      // Preparar información de pago
+      const paymentInfo = {
+        method: paymentMethod,
+        id: `payment-${Date.now()}`, // En una implementación real, esto vendría del procesador de pagos
+        amount: selectedPackage.price
+      };
+      
+      // Usar el servicio de tokens mejorado
+      const result = await tokenService.refillTokens(user.id, selectedPackage.id, paymentInfo);
       
       // Simular procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -143,10 +184,6 @@ const TokensManager = () => {
       // Mostrar mensaje de éxito
       toast.success(`¡Compra exitosa! Se han acreditado ${selectedPackage.tokens} tokens a tu cuenta.`);
       
-      // Resetear el estado
-      setShowCheckout(false);
-      setSelectedPackage(null);
-      setTurnstileVerified(false);
     } catch (error) {
       console.error('Error processing purchase:', error);
       toast.error(error.message || 'Error al procesar la compra. Inténtelo de nuevo.');
@@ -364,11 +401,14 @@ const TokensManager = () => {
             <div className="mt-2 text-sm text-blue-700 space-y-1">
               <p>Los tokens son la moneda virtual para acceder a servicios premium en nuestra plataforma:</p>
               <ul className="list-disc pl-5 mt-2 space-y-1">
-                <li>Consultas legales prioritarias (10-30 tokens)</li>
-                <li>Descarga de documentos legales personalizados (5-20 tokens)</li>
-                <li>Respuestas de IA en temas legales (5 tokens por consulta)</li>
-                <li>Acceso a webinars y cursos exclusivos (15-50 tokens)</li>
-                <li>Revisión de documentos legales (20-100 tokens según complejidad)</li>
+                <li>Consultas legales simples (1 token)</li>
+                <li>Consultas legales detalladas (2 tokens)</li>
+                <li>Consultas legales urgentes (5 tokens)</li>
+                <li>Documentos legales básicos (2 tokens)</li>
+                <li>Documentos legales complejos (3 tokens)</li>
+                <li>Documentos legales especializados (5 tokens)</li>
+                <li>Revisión de contratos (3 tokens)</li>
+                <li>Revisión de demandas (4 tokens)</li>
               </ul>
             </div>
           </div>
