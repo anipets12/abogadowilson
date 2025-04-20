@@ -1,5 +1,5 @@
 /// <reference path="./cloudflare.d.ts" />
-import { getAssetFromKV } from '@cloudflare/kv-asset-handler'
+import { getAssetFromKV, serveSinglePageApp } from '@cloudflare/kv-asset-handler'
 
 export interface Env {
   ASSETS: KVNamespace
@@ -73,6 +73,27 @@ export default {
             edgeTTL: 60 * 60 * 24 * 30, // 30 días
             bypassCache: false,
           },
+          mapRequestToAsset: req => {
+            // Verificar si la ruta actual debe ser manejada por React Router
+            const url = new URL(req.url);
+            const { pathname } = url;
+            
+            const isSpaRoute = SPA_ROUTES.some(route => 
+              pathname === route || pathname.startsWith(`${route}/`)
+            );
+            
+            // También considerar rutas sin extensión que no son /api/
+            const hasExtension = /\.\w+$/.test(pathname);
+            const shouldServeIndexHtml = isSpaRoute || (!hasExtension && pathname !== '/');
+            
+            // Si es una ruta SPA, servir index.html
+            if (shouldServeIndexHtml) {
+              console.log(`Mapeando solicitud a index.html para ruta SPA: ${pathname}`);
+              return new Request(`${url.origin}/index.html`, req);
+            }
+            
+            return req;
+          },
         };
         
         const page = await getAssetFromKV(request, options);
@@ -88,50 +109,21 @@ export default {
       } catch (e) {
         console.error('Error al servir archivo estático:', e);
         
-        // Verificar si la ruta actual debe ser manejada por React Router
-        const { pathname } = new URL(request.url);
-        const isSpaRoute = SPA_ROUTES.some(route => 
-          pathname === route || pathname.startsWith(`${route}/`)
-        );
-        
-        // También considerar rutas sin extensión que no son /api/
-        const hasExtension = /\.\w+$/.test(pathname);
-        const shouldServeIndexHtml = isSpaRoute || (!hasExtension && pathname !== '/');
-        
-        // Si es una ruta SPA, servir index.html
-        if (shouldServeIndexHtml) {
-          console.log(`Sirviendo index.html para ruta SPA: ${pathname}`);
-          const indexRequest = new Request(new URL('/index.html', request.url).toString(), request);
+        // Intentar servir como una SPA utilizando la función especializada
+        try {
+          console.log('Intentando servir como SPA con serveSinglePageApp');
+          const response = await serveSinglePageApp(request, {
+            ASSET_NAMESPACE: env.ASSETS,
+          });
           
-          try {
-            const options = {
-              ASSET_NAMESPACE: env.ASSETS,
-              cacheControl: {
-                browserTTL: 60 * 60 * 24, // 1 día
-                edgeTTL: 60 * 60 * 24 * 30, // 30 días
-                bypassCache: false,
-              },
-            };
-            
-            const notFoundResponse = await getAssetFromKV(indexRequest, options);
-
-            const response = new Response(notFoundResponse.body, {
-              ...notFoundResponse,
-              status: 200, // Devolvemos 200 para SPA routing
-            });
-
-            Object.entries(securityHeaders).forEach(([key, value]) => {
-              response.headers.set(key, value);
-            });
-
-            return response;
-          } catch (indexError) {
-            console.error('Error al servir index.html para SPA routing:', indexError);
-            return new Response('Página no encontrada', { 
-              status: 404,
-              headers: securityHeaders
-            });
-          }
+          // Establecer los headers de seguridad
+          Object.entries(securityHeaders).forEach(([key, value]) => {
+            response.headers.set(key, value);
+          });
+          
+          return response;
+        } catch (spaError) {
+          console.error('Error al servir como SPA:', spaError);
         }
         
         return new Response('Archivo no encontrado', { 
