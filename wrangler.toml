@@ -24,13 +24,13 @@ cpu_ms = 1000
 ENVIRONMENT = "production"
 CORS_ORIGIN = "*"
 
-[kv_namespaces]
-[[kv_namespaces.bindings]]
+# KV Namespaces
+[[kv_namespaces]]
 binding = "ASSETS"
 id = "d977cf29acc749ba8aeabbcb2d395cb3"
 
-[d1_databases]
-[[d1_databases.bindings]]
+# D1 Databases
+[[d1_databases]]
 binding = "DB"
 database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176"
 
