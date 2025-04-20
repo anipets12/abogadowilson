@@ -6,6 +6,18 @@
   "exclude": [],
   "routes": [
     {
+      "src": "/favicon.ico",
+      "dest": "/favicon.ico"
+    },
+    {
+      "src": "/favicon.svg",
+      "dest": "/favicon.svg"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/manifest.json"
+    },
+    {
       "src": "/api/config",
       "dest": "/api/config"
     },
@@ -22,7 +34,11 @@
       "dest": "/api/proxy?url=$1"
     },
     {
-      "src": "/(.*)\\.(.*)$",
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/(.*)\\.(.*)",
       "dest": "/$1.$2"
     },
     {
