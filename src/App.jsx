@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import axios from 'axios';
+import FallbackLoader from "./components/Common/FallbackLoader";
 
 // Componentes de estructura base
 import Navbar from './components/Navigation/Navbar';
@@ -149,6 +150,8 @@ const getBaseUrl = () => {
 function App() {
   const [apiReady, setApiReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasConnectionError, setHasConnectionError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Verificar la API al iniciar
   useEffect(() => {
@@ -178,6 +181,8 @@ function App() {
         }
         // Permitimos acceso a la aplicación de todos modos
         setApiReady(true);
+        setHasConnectionError(true);
+        setErrorMessage("Hay problemas de conexión con nuestros servicios.");
       } finally {
         setIsLoading(false);
       }
@@ -194,6 +199,17 @@ function App() {
         <h2 className="text-xl font-semibold">Cargando aplicación...</h2>
         <p className="text-sm mt-2 text-gray-300">Esto tomará solo unos segundos</p>
       </div>
+    );
+  }
+
+  // Renderizado de la aplicación
+  if (hasConnectionError) {
+    return (
+      <FallbackLoader 
+        error={true} 
+        errorMessage={errorMessage || "Hay problemas de conexión con nuestros servicios."}
+        retry={() => window.location.reload()} 
+      />
     );
   }
 

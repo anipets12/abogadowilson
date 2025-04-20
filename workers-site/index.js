@@ -1,6 +1,7 @@
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler'
 import { handleChatRequest } from './api/chat'
 import { handleSupabaseProxy, checkSupabaseConnection } from './api/supabase-proxy'
+import { handleSearches } from './api/searches'
 
 /**
  * Worker para servir sitio estático SPA con Cloudflare Workers
@@ -70,15 +71,39 @@ async function handleEvent(event) {
   
   // Manejar favicon específicamente (tanto .ico como .svg)
   if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') {
-    // Devolvemos un favicon SVG mejorado en línea
-    return new Response(faviconSvg, { 
-      status: 200,
-      headers: {
-        'Content-Type': 'image/svg+xml',
-        'Cache-Control': 'public, max-age=86400',
-        ...corsHeaders
+    try {
+      // Intentar obtener el favicon desde KV primero
+      const faviconRequest = new Request(`${url.origin}/favicon.svg`, request);
+      const favicon = await getAssetFromKV(event, {
+        mapRequestToAsset: req => faviconRequest
+      }).catch(() => null);
+      
+      if (favicon) {
+        const response = new Response(favicon.body, favicon);
+        response.headers.set('Cache-Control', 'public, max-age=86400');
+        return response;
       }
-    });
+      
+      // Si no se encuentra en KV, usar el favicon en línea
+      return new Response(faviconSvg, { 
+        status: 200,
+        headers: {
+          'Content-Type': 'image/svg+xml',
+          'Cache-Control': 'public, max-age=86400',
+          ...corsHeaders
+        }
+      });
+    } catch (e) {
+      // Si todo falla, devolver un favicon en línea
+      return new Response(faviconSvg, { 
+        status: 200,
+        headers: {
+          'Content-Type': 'image/svg+xml',
+          'Cache-Control': 'public, max-age=86400',
+          ...corsHeaders
+        }
+      });
+    }
   }
   
   // Opciones para servir activos estáticos
@@ -244,9 +269,14 @@ async function handleApiRequest(event, url) {
   if (url.pathname === '/api/verify-turnstile') {
     return handleTurnstileVerification(request);
   }
+  
+  // API para búsquedas recientes
+  if (url.pathname === '/api/data/searches') {
+    return handleSearches(request);
+  }
 
   // Default response for unhandled API routes
-  return new Response(JSON.stringify({ error: 'API route not found', path: pathname }), {
+  return new Response(JSON.stringify({ error: 'API route not found', path: url.pathname }), {
     status: 404,
     headers: {
       'Content-Type': 'application/json'

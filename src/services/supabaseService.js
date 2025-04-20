@@ -18,9 +18,21 @@ const supabaseKey = process.env.SUPABASE_KEY || supabaseConfig.key;
 const shouldUseProxyWorker = () => {
   if (typeof window === 'undefined') return false; // SSR
   
-  // Verificar si estamos en un Worker o hay indicios de problemas CORS
-  return window.location.hostname.includes('workers.dev') || 
-         localStorage.getItem('use_proxy') === 'true' || 
+  // Forzar el uso del proxy en producción para evitar CORS
+  if (process.env.NODE_ENV === 'production' || 
+      window.location.hostname.includes('workers.dev') || 
+      window.location.hostname !== 'localhost') {
+    // Guardar preferencia para uso futuro
+    try {
+      localStorage.setItem('use_proxy', 'true');
+    } catch (e) {
+      console.warn('No se pudo guardar preferencia de proxy en localStorage');
+    }
+    return true;
+  }
+  
+  // Verificar si hay indicios previos de problemas CORS
+  return localStorage.getItem('use_proxy') === 'true' || 
          navigator.userAgent.includes('Cloudflare');
 };
 
@@ -144,10 +156,10 @@ export const supabaseService = {
       });
       
       // Probar la conexión con nuestra función de prueba
-      const connectionResult = testSupabaseConnection();
+      const connectionPromise = testSupabaseConnection();
       
       // Usar Promise.race para implementar el timeout
-      const result = await Promise.race([connectionResult, timeoutPromise]);
+      const result = await Promise.race([connectionPromise, timeoutPromise]);
       
       const elapsed = Date.now() - startTime;
       
@@ -163,9 +175,8 @@ export const supabaseService = {
     } catch (error) {
       console.error('Error al verificar conexión:', error);
       
-      // Si estamos en un worker o entorno de desarrollo, intentar el proxy explícitamente
+      // Intentar el proxy explícitamente en cualquier contexto con problemas de conexión
       if (typeof window !== 'undefined') {
-        if (window.location.hostname.includes('workers.dev') || process.env.NODE_ENV === 'development') {
           try {
             console.log('Intentando conexión vía proxy en worker/desarrollo');
             const response = await fetch(`${window.location.origin}/api/check-connection`);
