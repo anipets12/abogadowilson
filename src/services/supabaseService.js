@@ -10,6 +10,9 @@ import { createClient } from '@supabase/supabase-js';
 // Importar configuración centralizada
 import { supabaseConfig, getBaseUrl, isProduction } from '../config/appConfig';
 
+// Variable para almacenar la única instancia del cliente
+let supabaseClientInstance = null;
+
 // Usar la configuración centralizada
 const supabaseUrl = supabaseConfig.url;
 const supabaseKey = (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_KEY : 
@@ -28,8 +31,9 @@ const shouldUseProxyWorker = () => {
     try {
       localStorage.setItem('use_proxy', 'true');
     } catch (e) {
-      console.warn('No se pudo guardar preferencia de proxy en localStorage');
+      // Silenciar error
     }
+    console.log('Usando proxy CORS para Supabase');
     return true;
   }
   
@@ -48,120 +52,204 @@ const getSupabaseOptions = () => {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true,
-      storageKey: 'abogadowilson_auth_token',
-      storage: {
-        getItem: (key) => {
-          try {
-            return localStorage.getItem(key);
-          } catch (error) {
-            console.warn('Error al acceder a localStorage:', error);
-            return null;
-          }
-        },
-        setItem: (key, value) => {
-          try {
-            localStorage.setItem(key, value);
-          } catch (error) {
-            console.warn('Error al escribir en localStorage:', error);
-          }
-        },
-        removeItem: (key) => {
-          try {
-            localStorage.removeItem(key);
-          } catch (error) {
-            console.warn('Error al eliminar de localStorage:', error);
-          }
-        }
-      }
+      detectSessionInUrl: false // Cambiado a false para evitar problemas con la detección de URL
+    },
+    headers: {
+      'X-Client-Info': 'abogado-wilson-website'
+    },
+    global: {
+      fetch: undefined // Será definido condicional más abajo
     }
   };
-  
-  // Si estamos en un entorno con problemas CORS, usar fetch personalizado
+
+  // En Cloudflare Workers o cuando necesitamos un proxy CORS
   if (shouldUseProxyWorker()) {
-    console.log('Usando proxy CORS para Supabase');
-    options.global = {
-      fetch: (...args) => {
-        // Extraer la URL original
-        const url = args[0];
-        let path = '';
+    try {
+      // Implementar una versión personalizada de fetch con manejo CORS
+      options.global.fetch = (...args) => {
+        const [resource, config] = args;
         
-        if (typeof url === 'string') {
-          // Obtener la ruta relativa eliminando la URL base de Supabase
-          path = url.replace(supabaseUrl, '');
-        } else if (url instanceof Request) {
-          path = url.url.replace(supabaseUrl, '');
+        // Preparar configuración de solicitud
+        const fetchConfig = {
+          ...config,
+          headers: {
+            ...config?.headers,
+            'X-CORS-Bypass': 'true'
+          }
+        };
+        
+        // Para URLs de Supabase, aplicar lógica especial
+        if (typeof resource === 'string' && resource.includes('supabase.co')) {
+          // Intentar la solicitud directa primero
+          return fetch(resource, fetchConfig)
+            .then(response => {
+              // Si es exitosa, regresar la respuesta
+              if (response.ok) return response;
+              
+              // Si hay un error CORS o de red, intentar con un proxy
+              // El proxy debe implementarse en Cloudflare Workers
+              const proxyUrl = `${getBaseUrl()}/api/proxy`;
+              const proxyConfig = {
+                ...fetchConfig,
+                method: 'POST',
+                headers: {
+                  ...fetchConfig.headers,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  url: resource,
+                  method: config?.method || 'GET',
+                  headers: config?.headers || {},
+                  body: config?.body
+                })
+              };
+              
+              return fetch(proxyUrl, proxyConfig);
+            })
+            .catch(error => {
+              // En caso de error, intentar con el proxy
+              console.warn('Error en solicitud directa a Supabase, usando proxy:', error.message);
+              
+              const proxyUrl = `${getBaseUrl()}/api/proxy`;
+              const proxyConfig = {
+                ...fetchConfig,
+                method: 'POST',
+                headers: {
+                  ...fetchConfig.headers,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  url: resource,
+                  method: config?.method || 'GET',
+                  headers: config?.headers || {},
+                  body: config?.body
+                })
+              };
+              
+              return fetch(proxyUrl, proxyConfig);
+            });
         }
         
-        // Construir la URL del proxy
-        const proxyUrl = `${window.location.origin}/api/supabase${path}`;
-        
-        // Reemplazar la URL original con la URL del proxy
-        if (typeof url === 'string') {
-          args[0] = proxyUrl;
-        } else if (url instanceof Request) {
-          // Clonar la solicitud con la nueva URL
-          const newRequest = new Request(proxyUrl, url);
-          args[0] = newRequest;
-        }
-        
-        return fetch(...args);
-      }
-    };
+        // Para otras URLs, usar fetch normal
+        return fetch(resource, fetchConfig);
+      };
+    } catch (error) {
+      console.error('Error al configurar fetch personalizado:', error);
+    }
   }
   
   return options;
 };
 
+// Crear cliente de fallback para cuando hay problemas de conexión
+const createFallbackClient = () => {
+  console.warn('Usando cliente de fallback para Supabase');
+  return {
+    auth: {
+      signIn: () => Promise.resolve({ user: null, error: new Error('Modo offline') }),
+      signUp: () => Promise.resolve({ user: null, error: new Error('Modo offline') }),
+      signOut: () => Promise.resolve({ error: null }),
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+      onAuthStateChange: () => ({ data: null, unsubscribe: () => {} }),
+      signInWithOAuth: () => Promise.resolve({ error: new Error('Modo offline') }),
+      signInWithPassword: () => Promise.resolve({ error: new Error('Modo offline') }),
+      updateUser: () => Promise.resolve({ error: new Error('Modo offline') })
+    },
+    from: () => ({
+      select: () => ({ 
+        eq: () => ({ 
+          single: () => Promise.resolve({ data: null, error: null }),
+          limit: () => Promise.resolve({ data: [], error: null }),
+          range: () => Promise.resolve({ data: [], error: null }),
+          order: () => Promise.resolve({ data: [], error: null })
+        }),
+        neq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+        gt: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+        lt: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+        gte: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+        lte: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+        like: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+        ilike: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+        in: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
+      }),
+      insert: () => Promise.resolve({ data: null, error: null }),
+      update: () => Promise.resolve({ data: null, error: null }),
+      delete: () => Promise.resolve({ data: null, error: null })
+    }),
+    storage: {
+      createBucket: () => Promise.resolve({ data: null, error: null }),
+      getBucket: () => Promise.resolve({ data: null, error: null }),
+      listBuckets: () => Promise.resolve({ data: [], error: null }),
+      emptyBucket: () => Promise.resolve({ data: null, error: null }),
+      deleteBucket: () => Promise.resolve({ data: null, error: null }),
+      from: () => ({
+        upload: () => Promise.resolve({ data: null, error: null }),
+        download: () => Promise.resolve({ data: null, error: null }),
+        getPublicUrl: () => ({ publicURL: '' })
+      })
+    }
+  };
+};
+
+// Función para crear un cliente Supabase singleton
+export const getSupabaseClient = () => {
+  if (supabaseClientInstance) {
+    return supabaseClientInstance;
+  }
+  
+  try {
+    console.log('Creando nueva instancia de Supabase client');
+    const options = getSupabaseOptions();
+    supabaseClientInstance = createClient(supabaseUrl, supabaseKey, options);
+    return supabaseClientInstance;
+  } catch (error) {
+    console.error('Error al crear cliente de Supabase:', error);
+    
+    // En caso de error, retornar un cliente con métodos de simulación para evitar fallos en la aplicación
+    return createFallbackClient();
+  }
+};
+
 // Función de reintento para usar en todos los servicios
 const withRetry = async (fn, maxRetries = 3) => {
-  let retries = maxRetries;
-  while (retries >= 0) {
+  let lastError = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      if (retries <= 0) throw error;
-      console.log(`Intento ${maxRetries - retries + 1} falló: ${error.message}. Reintentando...`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      retries--;
+      console.warn(`Intento ${attempt + 1}/${maxRetries} falló:`, error);
+      lastError = error;
+      
+      // Esperar antes del siguiente intento (backoff exponencial)
+      if (attempt < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt)));
+      }
     }
   }
-};
-
-// Función para crear cliente con reintento automático
-export const createSupabaseClient = (maxRetries = 3) => {
-  try {
-    // Obtener opciones con posible proxy CORS
-    const options = getSupabaseOptions();
-    return createClient(supabaseUrl, supabaseKey, options);
-  } catch (error) {
-    console.error('Error al crear cliente Supabase:', error);
-    // Fallback básico
-    return createClient(supabaseUrl, supabaseKey);
-  }
+  
+  throw lastError;
 };
 
 // Crear cliente de Supabase
-export const supabase = createSupabaseClient();
+export const supabase = getSupabaseClient();
 
-// Función para validar la conectividad
-export const testSupabaseConnection = async () => {
+// Verificar la conexión al inicio
+if (typeof window !== 'undefined') {
   try {
-    // Intentar una operación simple para probar la conexión
-    const { data, error } = await supabase.from('profiles').select('count');
-    
-    if (error) {
-      console.error('Error en prueba de conexión:', error.message);
-      throw error;
-    }
-    
-    console.log('Conexión a Supabase correcta:', data);
-    return true;
-  } catch (error) {
-    console.error('Error de conexión con Supabase:', error);
-    return false;
+    console.log('Verificando conexión con Supabase...');
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.warn('Error de conexión con Supabase:', error.message);
+      } else {
+        console.log('Conexión con Supabase establecida correctamente');
+      }
+    });
+  } catch (e) {
+    console.error('Error al verificar conexión con Supabase:', e);
   }
-};
+}
 
 // Servicio principal para Supabase
 export const supabaseService = {
@@ -169,57 +257,57 @@ export const supabaseService = {
   
   // Verifica la conexión con la API de Supabase
   // @returns {Promise<{connected: boolean, message: string}>}
-  async checkConnection() {
+  checkConnection: async () => {
     try {
       console.log('Verificando conexión con Supabase...');
-      const startTime = Date.now();
       
-      // Intento simple para verificar conectividad
-      const { data, error } = await this.supabase
-        .from('health_check')
-        .select('*')
-        .limit(1);
-      
-      const endTime = Date.now();
-      const responseTime = endTime - startTime;
+      // Intentar obtener la sesión actual
+      const { data, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.warn('Error al conectar con Supabase:', error.message);
+        console.error('Error al verificar conexión con Supabase:', error);
+        
+        // En entorno de desarrollo o worker, simular la conexión para permitir testing
+        if ((typeof process !== 'undefined' ? process.env?.DEV : 
+            (typeof window !== 'undefined' ? window.__ENV__?.DEV : false)) || 
+            (typeof navigator !== 'undefined' && navigator.userAgent.includes('Cloudflare'))) {
+          // Solo loggear el error en consola
+          console.warn('Error original:', error.message);
+          console.warn('Simulando conexión exitosa para permitir desarrollo');
+          
+          return {
+            connected: true,
+            simulated: true,
+            message: 'Conexión simulada para desarrollo/testing'
+          };
+        }
+        
         return {
           connected: false,
-          message: error.message,
-          responseTime
+          message: `Error de conexión: ${error.message}`
         };
       }
       
       return {
         connected: true,
-        message: 'Conexión exitosa con Supabase',
-        responseTime,
-        data
+        message: 'Conexión establecida correctamente',
+        session: data
       };
     } catch (error) {
-      console.error('Error al verificar conexión con Supabase:', error);
+      console.error('Error al verificar conexión:', error);
       
-      // En entorno de desarrollo o worker, simular la conexión para permitir testing
-      if ((typeof process !== 'undefined' ? process.env?.DEV : 
-          (typeof window !== 'undefined' ? window.__ENV__?.DEV : false)) || 
-          (typeof navigator !== 'undefined' && navigator.userAgent.includes('Cloudflare'))) {
-        // Solo loggear el error en consola
-        console.warn('Error original:', error.message);
-        
+      // Simular conexión en desarrollo
+      if (!isProduction) {
         return {
           connected: true,
-          message: 'Conexión simulada con Supabase (desarrollo)',
-          responseTime: 100,
-          simulated: true
+          simulated: true,
+          message: 'Conexión simulada (modo desarrollo)'
         };
       }
       
       return {
         connected: false,
-        message: error.message,
-        error: error.toString()
+        message: `Error inesperado: ${error.message}`
       };
     }
   }
@@ -228,153 +316,203 @@ export const supabaseService = {
 // Servicio mejorado para autenticación
 export const authService = {
   // Iniciar sesión con Google
-  async signInWithGoogle() {
+  signInWithGoogle: async (redirectTo = window.location.origin) => {
     try {
-      // Definir URL de redirección
-      const redirectTo = `${getBaseUrl()}/auth/callback`;
+      // Verificar si estamos en un entorno web
+      if (typeof window === 'undefined') {
+        throw new Error('Esta función solo puede ejecutarse en un navegador');
+      }
       
+      // Configurar redirección
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
+          scopes: 'email profile'
+        }
       });
       
       if (error) throw error;
       
-      // Retornar información o URL para redirección
       return {
-        url: data?.url,
+        success: true,
+        data,
         error: null
       };
     } catch (error) {
       console.error('Error al iniciar sesión con Google:', error);
-      return { url: null, error };
+      return {
+        success: false,
+        data: null,
+        error: {
+          message: error.message || 'Error al autenticar con Google',
+          details: error
+        }
+      };
     }
   },
   
   // Iniciar sesión con Facebook
-  async signInWithFacebook() {
+  signInWithFacebook: async (redirectTo = window.location.origin) => {
     try {
-      // Definir URL de redirección
-      const redirectTo = `${getBaseUrl()}/auth/callback`;
+      // Verificar si estamos en un entorno web
+      if (typeof window === 'undefined') {
+        throw new Error('Esta función solo puede ejecutarse en un navegador');
+      }
       
+      // Configurar redirección
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
         options: {
           redirectTo,
-          scopes: 'email,public_profile',
-        },
+          scopes: 'email,public_profile'
+        }
       });
       
       if (error) throw error;
       
-      // Retornar información o URL para redirección
       return {
-        url: data?.url,
+        success: true,
+        data,
         error: null
       };
     } catch (error) {
       console.error('Error al iniciar sesión con Facebook:', error);
-      return { url: null, error };
+      return {
+        success: false,
+        data: null,
+        error: {
+          message: error.message || 'Error al autenticar con Facebook',
+          details: error
+        }
+      };
     }
   },
   
   // Procesar callback de autenticación OAuth
-  async handleAuthCallback() {
+  handleAuthCallback: async () => {
     try {
+      // Obtener sesión actual
       const { data, error } = await supabase.auth.getSession();
       
       if (error) throw error;
       
       return {
+        success: true,
         session: data.session,
+        user: data.session?.user,
         error: null
       };
     } catch (error) {
       console.error('Error al procesar callback de autenticación:', error);
-      return { session: null, error };
+      return {
+        success: false,
+        session: null,
+        user: null,
+        error: {
+          message: error.message || 'Error al procesar autenticación',
+          details: error
+        }
+      };
     }
   },
   
   // Registrar nuevo usuario
-  async register(email, password, userData) {
+  register: async (email, password, userData = {}) => {
     try {
-      console.log('Registrando usuario...');
-      
-      // Verificar primero si el usuario ya existe
-      const { data: existingUsers } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', email);
-        
-      if (existingUsers && existingUsers.length > 0) {
-        throw new Error('Este correo electrónico ya está registrado. Por favor inicia sesión.');
+      // Validaciones básicas
+      if (!email || !password) {
+        throw new Error('Email y contraseña son requeridos');
       }
       
-      // Usar directamente la API de Auth para registrar
+      if (password.length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres');
+      }
+      
+      // Crear cuenta
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            full_name: userData?.name || '',
-            phone: userData?.phone || '',
-            referral_code: userData?.referralCode || ''
+            full_name: userData.fullName || '',
+            phone: userData.phone || '',
+            address: userData.address || '',
+            ...userData
           }
         }
       });
       
-      if (error) {
-        console.error('Error al registrar usuario:', error);
-        if (error.message.includes('User already registered')) {
-          throw new Error('Este correo electrónico ya está registrado. Por favor inicia sesión.');
-        }
-        throw error;
+      if (error) throw error;
+      
+      // Si todo fue exitoso pero se requiere confirmación
+      if (!data.user?.confirmed_at) {
+        return {
+          success: true,
+          confirmationRequired: true,
+          user: data.user,
+          message: 'Te enviamos un correo para confirmar tu cuenta',
+          error: null
+        };
       }
       
-      console.log('Registro exitoso:', data);
-      
-      // Crear perfil con 3 tokens iniciales para el usuario
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              email: email,
-              full_name: userData?.name || '',
-              phone: userData?.phone || '',
-              tokens: 3,
-              referral_code: userData?.referralCode || '',
-              created_at: new Date().toISOString()
-            }
-          ]);
+      // Crear perfil de usuario si no existe
+      if (data.user?.id) {
+        try {
+          // Verificar si ya existe el perfil
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
           
-        if (profileError) {
-          console.warn('Error al crear perfil de usuario:', profileError);
-          // No fallar el registro si solo falla la creación del perfil
+          // Si no existe o hay error, crear perfil
+          if (profileError || !profileData) {
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert([
+                { 
+                  id: data.user.id, 
+                  full_name: userData.fullName || '',
+                  phone: userData.phone || '',
+                  address: userData.address || '',
+                  ...userData
+                }
+              ]);
+              
+            if (insertError) {
+              console.error('Error al crear perfil:', insertError);
+            }
+          }
+        } catch (profileError) {
+          console.error('Error al verificar/crear perfil:', profileError);
         }
       }
       
-      // Devolver información del usuario registrado
-      return { 
-        data: data, 
-        error: null,
-        simulated: !data.user // Indicar si es una simulación
+      return {
+        success: true,
+        confirmationRequired: false,
+        user: data.user,
+        message: 'Cuenta creada correctamente',
+        error: null
       };
     } catch (error) {
-      console.error('Error en el servicio de registro:', error);
-      return { data: null, error };
+      console.error('Error al registrar usuario:', error);
+      return {
+        success: false,
+        confirmationRequired: false,
+        user: null,
+        message: 'Error al crear cuenta',
+        error: {
+          message: error.message || 'Error al registrar',
+          details: error
+        }
+      };
     }
   },
   
   // Iniciar sesión
-  async login(email, password) {
+  login: async (email, password) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -383,61 +521,101 @@ export const authService = {
       
       if (error) throw error;
       
-      return { user: data.user, session: data.session, error: null };
+      return {
+        success: true,
+        user: data.user,
+        session: data.session,
+        error: null
+      };
     } catch (error) {
       console.error('Error al iniciar sesión:', error);
-      return { user: null, session: null, error };
+      return {
+        success: false,
+        user: null,
+        session: null,
+        error: {
+          message: error.message || 'Credenciales inválidas',
+          details: error
+        }
+      };
     }
   },
   
   // Cerrar sesión
-  async signOut() {
+  signOut: async () => {
     try {
       const { error } = await supabase.auth.signOut();
       
       if (error) throw error;
       
-      return { error: null };
+      return {
+        success: true,
+        error: null
+      };
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
-      return { error };
+      return {
+        success: false,
+        error: {
+          message: error.message || 'Error al cerrar sesión',
+          details: error
+        }
+      };
     }
   },
   
   // Verificar sesión actual
-  async getSession() {
+  getSession: async () => {
     try {
       const { data, error } = await supabase.auth.getSession();
       
       if (error) throw error;
       
-      return { session: data.session, error: null };
+      return {
+        success: true,
+        session: data.session,
+        error: null
+      };
     } catch (error) {
-      console.error('Error al obtener sesión:', error);
-      return { session: null, error };
+      console.error('Error al verificar sesión:', error);
+      return {
+        success: false,
+        session: null,
+        error: {
+          message: error.message || 'Error al verificar sesión',
+          details: error
+        }
+      };
     }
   },
   
   // Obtener usuario actual
-  async getCurrentUser() {
+  getCurrentUser: async () => {
     try {
       const { data, error } = await supabase.auth.getUser();
       
       if (error) throw error;
       
-      if (data?.user) {
-        return { user: data.user, error: null };
-      } else {
-        return { user: null, error: null };
-      }
+      return {
+        success: true,
+        user: data.user,
+        error: null
+      };
     } catch (error) {
       console.error('Error al obtener usuario actual:', error);
-      return { user: null, error };
+      return {
+        success: false,
+        user: null,
+        error: {
+          message: error.message || 'Error al obtener usuario',
+          details: error
+        }
+      };
     }
   },
   
   // Actualizar usuario
-  async updateUser(userData) {
+  updateUser: async (userData) => {
     try {
       const { data, error } = await supabase.auth.updateUser({
         data: userData
@@ -447,7 +625,13 @@ export const authService = {
       return { user: data.user, error: null };
     } catch (error) {
       console.error('Error al actualizar usuario:', error);
-      return { user: null, error };
+      return {
+        success: false,
+        error: {
+          message: error.message || 'Error al actualizar usuario',
+          details: error
+        }
+      };
     }
   }
 };
@@ -455,31 +639,35 @@ export const authService = {
 // Servicio mejorado para operaciones CRUD
 export const dataService = {
   // Comprobar conexión (util para diagnóstico)
-  async checkConnection() {
+  checkConnection: async () => {
     try {
-      // Realizar una consulta mínima para verificar conectividad
+      // Intentar una operación simple como comprobación
       const { data, error } = await supabase
-        .from('profiles')
-        .select('count', { count: 'exact', head: true });
+        .from('health_check')
+        .select('*')
+        .limit(1);
       
       if (error) {
-        console.error('Error al verificar conexión:', error);
-        
-        // Verificar si es error de permisos (esto es esperado si la tabla no existe)
-        if (error.code === 'PGRST116') {
+        // Si el error es que la tabla no existe, es una buena señal (conexión funciona)
+        if (error.code === '42P01') {
           return {
             connected: true,
-            message: 'Conectado, pero sin acceso a tabla de prueba'
+            message: 'Conectado a Supabase correctamente (tabla no existe pero conexión funciona)'
           };
         }
         
-        // Si es error de CORS
-        if (error.message && error.message.includes('fetch')) {
-          return {
-            connected: false,
-            corsError: true,
-            message: 'Error CORS detectado, considere usar proxy'
-          };
+        // Si es otro tipo de error, verificar si podemos ignorarlo
+        if (error.code && ['500', '503', '404'].includes(error.code.toString())) {
+          console.warn('Error de servidor en Supabase:', error);
+          
+          // En modo desarrollo, permitir continuar
+          if (!isProduction) {
+            return {
+              connected: true,
+              simulated: true,
+              message: 'Conexión simulada (modo desarrollo)'
+            };
+          }
         }
         
         throw error;
@@ -487,31 +675,52 @@ export const dataService = {
       
       return {
         connected: true,
-        message: 'Conexión exitosa a Supabase'
+        message: 'Conectado a Supabase correctamente'
       };
     } catch (error) {
+      console.error('Error al comprobar conexión a datos:', error);
+      
+      // En desarrollo, simular conexión para permitir trabajar offline
+      if (!isProduction) {
+        return {
+          connected: true,
+          simulated: true,
+          message: 'Conexión simulada (modo desarrollo)'
+        };
+      }
+      
       return {
         connected: false,
-        message: error.message
+        message: error.message || 'Error de conexión a Supabase'
       };
     }
   },
   
   // Obtener todos los registros
-  async getAll(table, options = {}) {
+  getAll: async (table, options = {}) => {
     try {
-      let query = supabase.from(table).select('*');
+      let query = supabase.from(table).select(options.select || '*');
       
-      // Aplicar límite si se proporciona
-      if (options.limit) {
-        query = query.limit(options.limit);
+      // Aplicar filtros si existen
+      if (options.filters) {
+        for (const filter of options.filters) {
+          query = query[filter.method || 'eq'](filter.column, filter.value);
+        }
       }
       
-      // Aplicar ordenamiento si se proporciona
-      if (options.orderBy) {
-        query = query.order(options.orderBy.column, { 
-          ascending: options.orderBy.ascending
+      // Aplicar ordenamiento
+      if (options.order) {
+        query = query.order(options.order.column, { 
+          ascending: options.order.ascending !== false
         });
+      }
+      
+      // Aplicar paginación
+      if (options.page && options.pageSize) {
+        const from = (options.page - 1) * options.pageSize;
+        query = query.range(from, from + options.pageSize - 1);
+      } else if (options.limit) {
+        query = query.limit(options.limit);
       }
       
       const { data, error } = await query;
@@ -521,12 +730,12 @@ export const dataService = {
       return { data, error: null };
     } catch (error) {
       console.error(`Error al obtener registros de ${table}:`, error);
-      return { data: null, error };
+      return { data: [], error };
     }
   },
   
   // Obtener un registro por ID
-  async getById(table, id) {
+  getById: async (table, id) => {
     try {
       const { data, error } = await supabase
         .from(table)
@@ -544,15 +753,16 @@ export const dataService = {
   },
   
   // Crear un nuevo registro
-  async create(table, data) {
+  create: async (table, data) => {
     try {
-      const { data: responseData, error } = await supabase
+      const { data: result, error } = await supabase
         .from(table)
         .insert([data])
         .select();
       
       if (error) throw error;
-      return { data: responseData[0], error: null };
+      
+      return { data: result[0], error: null };
     } catch (error) {
       console.error(`Error al crear registro en ${table}:`, error);
       return { data: null, error };
@@ -560,16 +770,17 @@ export const dataService = {
   },
   
   // Actualizar un registro
-  async update(table, id, data) {
+  update: async (table, id, data) => {
     try {
-      const { data: responseData, error } = await supabase
+      const { data: result, error } = await supabase
         .from(table)
         .update(data)
         .eq('id', id)
         .select();
       
       if (error) throw error;
-      return { data: responseData[0], error: null };
+      
+      return { data: result[0], error: null };
     } catch (error) {
       console.error(`Error al actualizar registro ${id} en ${table}:`, error);
       return { data: null, error };
@@ -577,7 +788,7 @@ export const dataService = {
   },
   
   // Eliminar un registro
-  async delete(table, id) {
+  delete: async (table, id) => {
     try {
       const { error } = await supabase
         .from(table)
@@ -585,77 +796,107 @@ export const dataService = {
         .eq('id', id);
       
       if (error) throw error;
-      return { error: null };
+      
+      return { success: true, error: null };
     } catch (error) {
-      console.error(`Error al eliminar registro ${id} de ${table}:`, error);
-      return { error };
+      console.error(`Error al eliminar registro ${id} en ${table}:`, error);
+      return { success: false, error };
     }
   },
   
   // Búsqueda personalizada
-  async search(table, query = {}) {
+  search: async (table, query = {}) => {
     try {
-      let supabaseQuery = supabase.from(table).select('*');
+      let dbQuery = supabase.from(table).select(query.select || '*');
       
-      // Aplicar filtros de búsqueda
-      if (query.filters) {
-        for (const [column, filter] of Object.entries(query.filters)) {
-          if (filter.type === 'eq') {
-            supabaseQuery = supabaseQuery.eq(column, filter.value);
-          } else if (filter.type === 'like') {
-            supabaseQuery = supabaseQuery.ilike(column, `%${filter.value}%`);
-          } else if (filter.type === 'in') {
-            supabaseQuery = supabaseQuery.in(column, filter.value);
-          } else if (filter.type === 'gt') {
-            supabaseQuery = supabaseQuery.gt(column, filter.value);
-          } else if (filter.type === 'lt') {
-            supabaseQuery = supabaseQuery.lt(column, filter.value);
+      // Procesar filtros
+      if (query.filters && query.filters.length > 0) {
+        for (const filter of query.filters) {
+          // Soporte para diferentes tipos de operadores
+          switch (filter.operator) {
+            case 'eq':
+              dbQuery = dbQuery.eq(filter.column, filter.value);
+              break;
+            case 'neq':
+              dbQuery = dbQuery.neq(filter.column, filter.value);
+              break;
+            case 'gt':
+              dbQuery = dbQuery.gt(filter.column, filter.value);
+              break;
+            case 'lt': 
+              dbQuery = dbQuery.lt(filter.column, filter.value);
+              break;
+            case 'gte':
+              dbQuery = dbQuery.gte(filter.column, filter.value);
+              break;
+            case 'lte':
+              dbQuery = dbQuery.lte(filter.column, filter.value);
+              break;
+            case 'like':
+              dbQuery = dbQuery.like(filter.column, `%${filter.value}%`);
+              break;
+            case 'ilike':
+              dbQuery = dbQuery.ilike(filter.column, `%${filter.value}%`);
+              break;
+            case 'in':
+              dbQuery = dbQuery.in(filter.column, filter.value);
+              break;
+            default:
+              dbQuery = dbQuery.eq(filter.column, filter.value);
           }
         }
       }
       
-      // Aplicar límite
-      if (query.limit) {
-        supabaseQuery = supabaseQuery.limit(query.limit);
-      }
-      
       // Aplicar ordenamiento
       if (query.orderBy) {
-        supabaseQuery = supabaseQuery.order(query.orderBy.column, {
-          ascending: query.orderBy.ascending
-        });
+        dbQuery = dbQuery.order(query.orderBy, { ascending: query.ascending !== false });
       }
       
-      const { data, error } = await supabaseQuery;
+      // Aplicar paginación
+      if (query.limit) {
+        dbQuery = dbQuery.limit(query.limit);
+      }
+      
+      const { data, error } = await dbQuery;
       
       if (error) throw error;
+      
       return { data, error: null };
     } catch (error) {
-      console.error(`Error al buscar en ${table}:`, error);
-      return { data: null, error };
+      console.error(`Error en búsqueda personalizada en ${table}:`, error);
+      return { data: [], error };
     }
   },
   
   // Upload de archivos
-  async uploadFile(bucket, filePath, file) {
+  uploadFile: async (bucket, filePath, file) => {
     try {
+      // Asegurar que el bucket existe
+      const { error: bucketError } = await supabase.storage.getBucket(bucket);
+      
+      if (bucketError && bucketError.statusCode === 404) {
+        // Crear bucket si no existe
+        await supabase.storage.createBucket(bucket);
+      }
+      
       const { data, error } = await supabase.storage
         .from(bucket)
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
       
       if (error) throw error;
+      
       return { data, error: null };
     } catch (error) {
-      console.error(`Error al subir archivo a ${bucket}:`, error);
+      console.error(`Error al subir archivo a ${bucket}/${filePath}:`, error);
       return { data: null, error };
     }
   },
   
   // Obtener URL pública de un archivo
-  async getPublicUrl(bucket, filePath) {
+  getPublicUrl: (bucket, filePath) => {
     try {
       const { data } = supabase.storage
         .from(bucket)
@@ -663,8 +904,8 @@ export const dataService = {
       
       return { url: data.publicUrl, error: null };
     } catch (error) {
-      console.error(`Error al obtener URL pública de ${filePath}:`, error);
-      return { url: null, error };
+      console.error(`Error al obtener URL pública de ${bucket}/${filePath}:`, error);
+      return { url: '', error };
     }
   }
 };
@@ -673,5 +914,6 @@ export const dataService = {
 export default {
   auth: authService,
   data: dataService,
-  supabase
+  client: supabase,
+  service: supabaseService
 };

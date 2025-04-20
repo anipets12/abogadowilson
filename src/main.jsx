@@ -6,6 +6,8 @@ import './index.css'
 // Importamos nuestros parches para corregir errores
 import { applyRouterPatches } from './utils/routerPatch'
 import { applyReactRouterFixes } from './utils/reactRouterFix'
+// Importar sistema de recuperación de errores mejorado
+import { initErrorRecovery } from './utils/error-recovery'
 
 // Aseguramos que React esté disponible globalmente para evitar errores
 if (typeof window !== 'undefined') {
@@ -14,6 +16,9 @@ if (typeof window !== 'undefined') {
   // Aplicar parches para errores comunes
   applyRouterPatches();
   applyReactRouterFixes();
+  
+  // Inicializar sistema de recuperación avanzado
+  initErrorRecovery();
   
   // Configurar variables globales para Turnstile
   window.turnstileSitekey = "0x4AAAAAABDkl--Sw4n_bwmU";
