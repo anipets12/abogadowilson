@@ -1,5 +1,5 @@
 name = "abogado-wilson"
-main = "src/worker-simplified.ts"
+main = "src/worker-minimal.js"
 compatibility_date = "2024-02-14"
 account_id = "f21b24d86935a055c03d21f7fffd1514"
 workers_dev = true
@@ -22,10 +22,8 @@ exclude = []
 ENVIRONMENT = "production"
 CORS_ORIGIN = "*"
 
-# KV Namespaces
-[[kv_namespaces]]
-binding = "ASSETS"
-id = "d977cf29acc749ba8aeabbcb2d395cb3"
+# Para sitios estáticos, Cloudflare usa automáticamente __STATIC_CONTENT
+# No se necesita especificar el KV namespace manualmente
 
 # D1 Databases
 [[d1_databases]]
