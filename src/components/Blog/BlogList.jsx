@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaCalendarAlt, FaUser, FaTag, FaSearch, FaFilter } from 'react-icons/fa';
+import articlesData from './articles.json';
+import categoriesData from './categories.json';
 
 const BlogList = () => {
   const [loading, setLoading] = useState(true);
@@ -11,136 +13,14 @@ const BlogList = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   
   useEffect(() => {
-    fetchArticles();
-    fetchCategories();
+    setArticles(articlesData);
+    setCategories(categoriesData);
+    setLoading(false);
   }, []);
   
   useEffect(() => {
     filterArticles();
   }, [searchTerm, selectedCategory, articles]);
-  
-  const fetchArticles = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/blog/articles');
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar los artículos');
-      }
-      
-      const data = await response.json();
-      setArticles(data);
-      setFilteredArticles(data);
-    } catch (error) {
-      console.error('Error fetching articles:', error);
-      // Datos de fallback para desarrollo
-      const fallbackData = [
-        {
-          id: 1,
-          title: 'Cambios en la Ley de Tránsito: Lo que debes saber',
-          excerpt: 'Un análisis de los recientes cambios en la legislación de tránsito y cómo afectan a los conductores.',
-          content: 'Contenido completo del artículo...',
-          author: 'Wilson Alexander Ipiales Guerrón',
-          category: 'transito',
-          image: '/images/blog/transito-law.jpg',
-          date: '2025-03-15',
-          tags: ['tránsito', 'legislación', 'conductores'],
-          readTime: 5
-        },
-        {
-          id: 2,
-          title: 'Guía para la Defensa en Casos de Derecho Penal',
-          excerpt: 'Conoce los elementos clave para una defensa efectiva en casos penales y cómo proteger tus derechos.',
-          content: 'Contenido completo del artículo...',
-          author: 'Wilson Alexander Ipiales Guerrón',
-          category: 'penal',
-          image: '/images/blog/criminal-defense.jpg',
-          date: '2025-03-10',
-          tags: ['derecho penal', 'defensa legal', 'derechos'],
-          readTime: 8
-        },
-        {
-          id: 3,
-          title: 'Procedimiento para Divorcios en Ecuador: Proceso Paso a Paso',
-          excerpt: 'Una guía detallada sobre el proceso de divorcio en Ecuador, requisitos y consideraciones importantes.',
-          content: 'Contenido completo del artículo...',
-          author: 'Wilson Alexander Ipiales Guerrón',
-          category: 'familia',
-          image: '/images/blog/divorce-procedure.jpg',
-          date: '2025-02-28',
-          tags: ['divorcio', 'derecho familiar', 'proceso legal'],
-          readTime: 7
-        },
-        {
-          id: 4,
-          title: 'Derechos Laborales: Protecciones para Trabajadores',
-          excerpt: 'Conoce tus derechos como trabajador y las protecciones que ofrece la legislación laboral ecuatoriana.',
-          content: 'Contenido completo del artículo...',
-          author: 'Wilson Alexander Ipiales Guerrón',
-          category: 'laboral',
-          image: '/images/blog/labor-rights.jpg',
-          date: '2025-02-15',
-          tags: ['derechos laborales', 'empleo', 'protección laboral'],
-          readTime: 6
-        },
-        {
-          id: 5,
-          title: 'Constitución de Empresas: Guía Legal para Emprendedores',
-          excerpt: 'Todo lo que necesitas saber para constituir legalmente tu empresa y cumplir con los requisitos legales.',
-          content: 'Contenido completo del artículo...',
-          author: 'Wilson Alexander Ipiales Guerrón',
-          category: 'empresarial',
-          image: '/images/blog/business-legal.jpg',
-          date: '2025-02-05',
-          tags: ['emprendimiento', 'constitución empresarial', 'requisitos legales'],
-          readTime: 9
-        },
-        {
-          id: 6,
-          title: 'Protección de Datos Personales: Nueva Legislación',
-          excerpt: 'Análisis de las nuevas normativas sobre protección de datos personales y su impacto en personas y empresas.',
-          content: 'Contenido completo del artículo...',
-          author: 'Wilson Alexander Ipiales Guerrón',
-          category: 'tecnologia',
-          image: '/images/blog/data-protection.jpg',
-          date: '2025-01-25',
-          tags: ['protección de datos', 'privacidad', 'legislación digital'],
-          readTime: 7
-        }
-      ];
-      
-      setArticles(fallbackData);
-      setFilteredArticles(fallbackData);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/blog/categories');
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar categorías');
-      }
-      
-      const data = await response.json();
-      setCategories(data);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      // Datos de fallback para desarrollo
-      setCategories([
-        { id: 'all', name: 'Todas las categorías' },
-        { id: 'transito', name: 'Derecho de Tránsito' },
-        { id: 'penal', name: 'Derecho Penal' },
-        { id: 'familia', name: 'Derecho de Familia' },
-        { id: 'laboral', name: 'Derecho Laboral' },
-        { id: 'empresarial', name: 'Derecho Empresarial' },
-        { id: 'tecnologia', name: 'Derecho y Tecnología' },
-        { id: 'civil', name: 'Derecho Civil' }
-      ]);
-    }
-  };
   
   const filterArticles = () => {
     let filtered = [...articles];

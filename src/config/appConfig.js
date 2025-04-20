@@ -5,6 +5,18 @@
  * y demás información importante para la aplicación.
  */
 
+// Entorno de la aplicación
+export const isProduction = import.meta.env.PROD || false;
+export const isDevelopment = import.meta.env.DEV || true;
+
+// URLs base
+export const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return 'https://abogado-wilson.anipets12.workers.dev';
+};
+
 // Información de contacto
 export const contactInfo = {
   // Correos electrónicos
@@ -95,18 +107,40 @@ export const cloudflareConfig = {
 
 // Configuración de Supabase
 export const supabaseConfig = {
-  url: "https://phzldiaohelbyobhjrnc.supabase.co",
-  key: "sbp_db5898ecc094d37ec87562399efe3833e63ab20f",
-  // Configuración para autenticación social
-  auth: {
-    // URLs de redirección después de autenticación
-    redirectUrl: typeof window !== 'undefined' ? window.location.origin : 'https://abogado-wilson.anipets12.workers.dev',
-    // Proveedores habilitados
-    providers: {
-      google: true,
-      facebook: true
-    }
+  url: import.meta.env.VITE_SUPABASE_URL || 'https://phzldiaohelbyobhjrnc.supabase.co',
+  key: import.meta.env.VITE_SUPABASE_KEY || 'sbp_db5898ecc094d37ec87562399efe3833e63ab20f',
+  headers: {
+    'X-Client-Info': 'abogado-wilson'
   }
+};
+
+// Configuración de correo electrónico
+export const emailConfig = {
+  serviceId: import.meta.env.VITE_EMAIL_SERVICE_ID || 'default_service',
+  templateId: import.meta.env.VITE_EMAIL_TEMPLATE_ID || 'default_template',
+  userId: import.meta.env.VITE_EMAIL_USER_ID || 'default_user'
+};
+
+// Configuración de reCAPTCHA
+export const recaptchaConfig = {
+  siteKey: import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI', // Clave de prueba
+};
+
+// Configuración de Turnstile
+export const turnstileConfig = {
+  siteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAABY3h5dF4SWQyP',
+};
+
+// URLs del API
+export const apiUrls = {
+  base: import.meta.env.VITE_API_URL || '/api',
+  blog: '/api/blog',
+  contact: '/api/contact',
+  newsletter: '/api/newsletter',
+  courses: '/api/courses',
+  ebooks: '/api/ebooks',
+  consultation: '/api/consultation',
+  checkout: '/api/checkout',
 };
 
 // Configuración JWT
@@ -115,21 +149,19 @@ export const jwtConfig = {
   expiresIn: "7d" // 7 días
 };
 
-// Función para obtener URLs seguras (para evitar problemas en SSR)
-export const getBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-  return 'https://abogado-wilson.anipets12.workers.dev';
-};
-
 // Exportar configuración completa
 export default {
+  isProduction,
+  isDevelopment,
+  getBaseUrl,
   contactInfo,
   socialMedia,
   externalServices,
   cloudflareConfig,
   supabaseConfig,
-  jwtConfig,
-  getBaseUrl
+  emailConfig,
+  recaptchaConfig,
+  turnstileConfig,
+  apiUrls,
+  jwtConfig
 };

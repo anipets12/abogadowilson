@@ -4,6 +4,7 @@ import { FaCalendarAlt, FaUser, FaTag, FaArrowLeft, FaShare, FaRegBookmark, FaBo
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import NewsletterSignup from '../Newsletter/NewsletterSignup';
+import articlesData from './articles.json';
 
 const BlogArticle = () => {
   const { articleId } = useParams();
@@ -17,7 +18,19 @@ const BlogArticle = () => {
   
   useEffect(() => {
     if (articleId) {
-      fetchArticle(articleId);
+      const foundArticle = articlesData.find(a => a.id === parseInt(articleId));
+      if (foundArticle) {
+        setArticle(foundArticle);
+        
+        // Encontrar artículos relacionados de la misma categoría
+        const related = articlesData
+          .filter(a => a.category === foundArticle.category && a.id !== foundArticle.id)
+          .slice(0, 3);
+        setRelatedArticles(related);
+      } else {
+        navigate('/404');
+      }
+      setLoading(false);
     }
     
     // Verificar si el artículo está guardado por el usuario
@@ -29,141 +42,21 @@ const BlogArticle = () => {
     window.scrollTo(0, 0);
   }, [articleId, user]);
   
-  const fetchArticle = async (id) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/blog/articles/${id}`);
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          navigate('/404');
-          return;
-        }
-        throw new Error('Error al cargar el artículo');
-      }
-      
-      const data = await response.json();
-      setArticle(data);
-      
-      // Fetch related articles
-      fetchRelatedArticles(data.category, data.id);
-    } catch (error) {
-      console.error('Error fetching article:', error);
-      // Datos de fallback para desarrollo
-      const fallbackArticle = {
-        id: parseInt(id),
-        title: 'Cambios en la Ley de Tránsito: Lo que debes saber',
-        excerpt: 'Un análisis de los recientes cambios en la legislación de tránsito y cómo afectan a los conductores.',
-        content: `<p>La reciente modificación a la Ley de Tránsito de Ecuador introduce cambios significativos que afectan directamente a todos los conductores del país. Estas reformas, que entrarán en vigor a partir del próximo mes, buscan mejorar la seguridad vial y reducir la cantidad de accidentes de tránsito.</p>
-
-<h2>Principales cambios en la legislación</h2>
-
-<p>Entre las modificaciones más relevantes se encuentran:</p>
-
-<ul>
-  <li><strong>Nuevas sanciones por uso de celular</strong>: Se incrementan las multas por el uso de dispositivos móviles mientras se conduce, pudiendo llegar hasta el 30% de un salario básico unificado y la reducción de 6 puntos en la licencia.</li>
-  
-  <li><strong>Límites de velocidad</strong>: Se han redefinido los límites de velocidad en zonas urbanas, reduciéndose a 40 km/h en calles y 50 km/h en avenidas.</li>
-  
-  <li><strong>Sistema de puntos</strong>: Se modifica el sistema de puntos en la licencia, estableciendo mecanismos más estrictos para la recuperación de puntos perdidos.</li>
-  
-  <li><strong>Control de alcoholemia</strong>: Tolerancia cero para conductores profesionales y reducción del límite permitido para conductores particulares.</li>
-</ul>
-
-<h2>Impacto en los conductores</h2>
-
-<p>Estos cambios representan un enfoque más riguroso hacia las infracciones de tránsito, especialmente aquellas relacionadas con factores de riesgo como el uso del celular, el exceso de velocidad y el consumo de alcohol. Los conductores deberán adaptarse rápidamente a estas nuevas regulaciones para evitar sanciones y, más importante aún, para contribuir a la seguridad vial.</p>
-
-<p>Es fundamental que tanto conductores profesionales como particulares se familiaricen con estas modificaciones y ajusten sus hábitos de conducción acordemente. Las estadísticas demuestran que una gran proporción de accidentes de tránsito son causados precisamente por los factores que estas reformas buscan controlar.</p>
-
-<h2>Recomendaciones legales</h2>
-
-<p>Como profesionales del derecho, recomendamos:</p>
-
-<ol>
-  <li>Mantenerse informado sobre los cambios específicos que aplican a su categoría de licencia.</li>
-  <li>Evitar completamente el uso del celular mientras se conduce, incluso con dispositivos manos libres.</li>
-  <li>Respetar estrictamente los nuevos límites de velocidad, especialmente en zonas urbanas.</li>
-  <li>Abstenerse de consumir alcohol si se va a conducir, independientemente de la cantidad.</li>
-  <li>Conocer sus derechos en caso de ser sancionado incorrectamente.</li>
-</ol>
-
-<p>En caso de recibir una multa que considere injusta, es importante conocer los mecanismos de impugnación disponibles y los plazos para hacerlo. Nuestro equipo legal está disponible para brindar asesoría en estos casos.</p>
-
-<h2>Conclusión</h2>
-
-<p>Las modificaciones a la Ley de Tránsito representan un paso importante hacia la mejora de la seguridad vial en Ecuador. Si bien pueden parecer restrictivas en un primer momento, están diseñadas para proteger la vida de todos los usuarios de las vías. Adaptarse a estos cambios no solo evitará sanciones, sino que contribuirá a crear un ambiente de tránsito más seguro para todos.</p>`,
-        author: 'Wilson Alexander Ipiales Guerrón',
-        category: 'transito',
-        image: '/images/blog/transito-law.jpg',
-        date: '2025-03-15',
-        tags: ['tránsito', 'legislación', 'conductores'],
-        readTime: 5,
-        views: 1248
-      };
-      
-      setArticle(fallbackArticle);
-      
-      // Related articles fallback
-      setRelatedArticles([
-        {
-          id: 101,
-          title: 'Multas de tránsito: Cómo impugnarlas correctamente',
-          excerpt: 'Guía paso a paso para impugnar multas de tránsito indebidas.',
-          image: '/images/blog/multas-transito.jpg',
-          date: '2025-02-20',
-          author: 'Wilson Alexander Ipiales Guerrón'
-        },
-        {
-          id: 102,
-          title: 'Accidentes de tránsito: Aspectos legales a considerar',
-          excerpt: 'Qué hacer desde el punto de vista legal después de un accidente de tránsito.',
-          image: '/images/blog/accidentes-transito.jpg',
-          date: '2025-01-15',
-          author: 'Wilson Alexander Ipiales Guerrón'
-        },
-        {
-          id: 103,
-          title: 'Licencias de conducir: Nuevos requisitos y procedimientos',
-          excerpt: 'Actualización sobre los cambios en el proceso de obtención y renovación de licencias.',
-          image: '/images/blog/licencias-conducir.jpg',
-          date: '2025-03-01',
-          author: 'Wilson Alexander Ipiales Guerrón'
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
   const fetchRelatedArticles = async (category, currentArticleId) => {
     try {
-      const response = await fetch(`/api/blog/related?category=${category}&exclude=${currentArticleId}`);
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar artículos relacionados');
-      }
-      
-      const data = await response.json();
-      setRelatedArticles(data);
+      const related = articlesData
+        .filter(a => a.category === category && a.id !== currentArticleId)
+        .slice(0, 3);
+      setRelatedArticles(related);
     } catch (error) {
       console.error('Error fetching related articles:', error);
-      // Los artículos relacionados ya tienen un fallback en fetchArticle
     }
   };
   
   const checkIfSaved = async () => {
     try {
-      const response = await fetch(`/api/blog/saved?articleId=${articleId}`, {
-        headers: {
-          'Authorization': `Bearer ${user?.token}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Error al verificar artículo guardado');
-      
-      const data = await response.json();
-      setSaved(data.saved);
+      // Simular la verificación de si el artículo está guardado
+      setSaved(Math.random() < 0.5); // Cambiar esto por la lógica real de verificación
     } catch (error) {
       console.error('Error checking if saved:', error);
       setSaved(false);
@@ -177,20 +70,7 @@ const BlogArticle = () => {
     }
     
     try {
-      const response = await fetch('/api/blog/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token}`
-        },
-        body: JSON.stringify({
-          articleId,
-          save: !saved
-        })
-      });
-      
-      if (!response.ok) throw new Error('Error al guardar/eliminar artículo');
-      
+      // Simular la acción de guardar o eliminar el artículo
       setSaved(!saved);
       toast.success(saved ? 'Artículo eliminado de guardados' : 'Artículo guardado correctamente');
     } catch (error) {

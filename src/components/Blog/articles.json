@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "title": "Cambios en la Ley de Tránsito: Lo que debes saber",
+    "excerpt": "Un análisis de los recientes cambios en la legislación de tránsito y cómo afectan a los conductores.",
+    "content": "<p>La reciente modificación a la Ley de Tránsito de Ecuador introduce cambios significativos que afectan directamente a todos los conductores del país. Estas reformas, que entrarán en vigor a partir del próximo mes, buscan mejorar la seguridad vial y reducir la cantidad de accidentes de tránsito.</p><h2>Principales cambios en la legislación</h2><p>Entre las modificaciones más relevantes se encuentran:</p><ul><li><strong>Nuevas sanciones por uso de celular</strong>: Se incrementan las multas por el uso de dispositivos móviles mientras se conduce, pudiendo llegar hasta el 30% de un salario básico unificado y la reducción de 6 puntos en la licencia.</li><li><strong>Límites de velocidad</strong>: Se han redefinido los límites de velocidad en zonas urbanas, reduciéndose a 40 km/h en calles y 50 km/h en avenidas.</li><li><strong>Sistema de puntos</strong>: Se modifica el sistema de puntos en la licencia, estableciendo mecanismos más estrictos para la recuperación de puntos perdidos.</li><li><strong>Control de alcoholemia</strong>: Tolerancia cero para conductores profesionales y reducción del límite permitido para conductores particulares.</li></ul>",
+    "author": "Wilson Alexander Ipiales Guerrón",
+    "category": "transito",
+    "image": "/images/blog/transito-law.jpg",
+    "date": "2025-03-15",
+    "tags": ["tránsito", "legislación", "conductores"],
+    "readTime": 5
+  },
+  {
+    "id": 2,
+    "title": "Guía para la Defensa en Casos de Derecho Penal",
+    "excerpt": "Conoce los elementos clave para una defensa efectiva en casos penales y cómo proteger tus derechos.",
+    "content": "<p>Enfrentar un proceso penal puede ser una de las experiencias más estresantes en la vida de una persona. El sistema judicial penal ecuatoriano es complejo y requiere un entendimiento profundo de los derechos constitucionales y procedimientos legales.</p><h2>Elementos esenciales de una defensa penal efectiva</h2><p>Cuando se enfrenta un caso penal, es fundamental considerar los siguientes aspectos:</p><ul><li><strong>Presunción de inocencia</strong>: Este es un derecho constitucional fundamental. Toda persona es inocente hasta que se demuestre lo contrario mediante sentencia ejecutoriada.</li><li><strong>Derecho a la defensa</strong>: Incluye el acceso a un abogado desde el inicio del proceso, tiempo adecuado para preparar la defensa y presentar pruebas.</li><li><strong>Debido proceso</strong>: Garantiza que todas las etapas procesales se desarrollen conforme a la ley y respetando los derechos fundamentales.</li></ul>",
+    "author": "Wilson Alexander Ipiales Guerrón",
+    "category": "penal",
+    "image": "/images/blog/criminal-defense.jpg",
+    "date": "2025-03-10",
+    "tags": ["derecho penal", "defensa legal", "derechos"],
+    "readTime": 8
+  },
+  {
+    "id": 3,
+    "title": "Procedimiento para Divorcios en Ecuador: Proceso Paso a Paso",
+    "excerpt": "Una guía detallada sobre el proceso de divorcio en Ecuador, requisitos y consideraciones importantes.",
+    "content": "<p>El divorcio en Ecuador ha experimentado importantes cambios legislativos en los últimos años, simplificando procedimientos y reduciendo tiempos de espera. Esta guía ofrece una visión general del proceso actual.</p><h2>Tipos de divorcio en Ecuador</h2><p>La legislación ecuatoriana reconoce principalmente dos tipos de divorcio:</p><ul><li><strong>Divorcio por mutuo consentimiento</strong>: Cuando ambos cónyuges están de acuerdo en terminar el matrimonio.</li><li><strong>Divorcio contencioso</strong>: Cuando uno de los cónyuges solicita el divorcio y el otro no está de acuerdo o existen disputas sobre aspectos como la custodia de hijos o división de bienes.</li></ul><h2>Procedimiento de divorcio por mutuo consentimiento</h2><p>El proceso simplificado incluye los siguientes pasos:</p><ol><li>Presentación de la demanda conjunta ante notario público (sin hijos menores) o ante un juez de familia (con hijos menores).</li><li>Audiencia única donde se ratifica la voluntad de divorciarse.</li><li>Resolución o sentencia que disuelve el vínculo matrimonial.</li><li>Inscripción en el Registro Civil.</li></ol>",
+    "author": "Wilson Alexander Ipiales Guerrón",
+    "category": "familia",
+    "image": "/images/blog/divorce-procedure.jpg",
+    "date": "2025-02-28",
+    "tags": ["divorcio", "derecho familiar", "proceso legal"],
+    "readTime": 7
+  },
+  {
+    "id": 4,
+    "title": "Derechos Laborales: Protecciones para Trabajadores",
+    "excerpt": "Conoce tus derechos como trabajador y las protecciones que ofrece la legislación laboral ecuatoriana.",
+    "content": "<p>La legislación laboral ecuatoriana ha evolucionado significativamente para proteger los derechos de los trabajadores. Es fundamental que tanto empleadores como empleados conozcan el marco legal que rige las relaciones laborales.</p><h2>Derechos fundamentales de los trabajadores</h2><p>Entre los derechos más importantes reconocidos por la legislación ecuatoriana se encuentran:</p><ul><li><strong>Salario justo</strong>: Todo trabajador tiene derecho a recibir al menos el salario básico unificado establecido anualmente.</li><li><strong>Jornada laboral</strong>: La jornada ordinaria es de 8 horas diarias y 40 horas semanales. El trabajo que exceda estos límites debe ser remunerado como horas extraordinarias o suplementarias.</li><li><strong>Estabilidad laboral</strong>: Protección contra despidos injustificados y garantía de indemnizaciones en caso de terminación unilateral del contrato por parte del empleador.</li><li><strong>Seguridad social</strong>: Afiliación obligatoria al IESS desde el primer día de trabajo, con acceso a prestaciones de salud, maternidad, riesgos del trabajo, etc.</li></ul>",
+    "author": "Wilson Alexander Ipiales Guerrón",
+    "category": "laboral",
+    "image": "/images/blog/labor-rights.jpg",
+    "date": "2025-02-15",
+    "tags": ["derechos laborales", "empleo", "protección laboral"],
+    "readTime": 6
+  },
+  {
+    "id": 5,
+    "title": "Constitución de Empresas: Guía Legal para Emprendedores",
+    "excerpt": "Todo lo que necesitas saber para constituir legalmente tu empresa y cumplir con los requisitos legales.",
+    "content": "<p>El emprendimiento en Ecuador ha crecido significativamente en los últimos años, impulsando la economía y generando nuevas oportunidades de empleo. Sin embargo, para garantizar el éxito y la sostenibilidad de un negocio, es fundamental cumplir con todos los requisitos legales para su constitución.</p><h2>Tipos de empresas en Ecuador</h2><p>La legislación ecuatoriana reconoce diferentes formas jurídicas para constituir una empresa:</p><ul><li><strong>Compañía Limitada</strong>: Formada por un mínimo de 2 y máximo de 15 socios, con responsabilidad limitada al capital aportado.</li><li><strong>Sociedad Anónima</strong>: Constituida con un mínimo de 2 accionistas, sin límite máximo, con capital dividido en acciones negociables.</li><li><strong>Empresa Unipersonal de Responsabilidad Limitada</strong>: Formada por una sola persona natural, con patrimonio separado del personal.</li><li><strong>Compañía en Nombre Colectivo</strong>: Formada por dos o más socios que responden solidaria e ilimitadamente por las obligaciones sociales.</li></ul>",
+    "author": "Wilson Alexander Ipiales Guerrón",
+    "category": "empresarial",
+    "image": "/images/blog/business-legal.jpg",
+    "date": "2025-02-05",
+    "tags": ["emprendimiento", "constitución empresarial", "requisitos legales"],
+    "readTime": 9
+  },
+  {
+    "id": 6,
+    "title": "Protección de Datos Personales: Nueva Legislación",
+    "excerpt": "Análisis de la nueva Ley Orgánica de Protección de Datos Personales y su impacto en empresas y ciudadanos.",
+    "content": "<p>La reciente aprobación de la Ley Orgánica de Protección de Datos Personales (LOPDP) marca un hito importante en la protección de la privacidad y los derechos digitales de los ciudadanos ecuatorianos. Esta normativa, inspirada en modelos internacionales como el RGPD europeo, establece un marco regulatorio integral para el tratamiento de datos personales.</p><h2>Principales aspectos de la nueva ley</h2><p>Entre los elementos más destacados de la LOPDP se encuentran:</p><ul><li><strong>Derechos ARCO+</strong>: Reconoce y amplia los derechos de Acceso, Rectificación, Cancelación y Oposición, añadiendo el derecho al olvido, portabilidad y limitación del tratamiento.</li><li><strong>Consentimiento explícito</strong>: Establece que el tratamiento de datos personales requiere el consentimiento libre, específico, informado e inequívoco del titular.</li><li><strong>Responsabilidad proactiva</strong>: Las organizaciones deben implementar medidas técnicas y organizativas apropiadas para garantizar y demostrar el cumplimiento de la ley.</li><li><strong>Notificación de brechas</strong>: Obligación de notificar las violaciones de seguridad que afecten a datos personales en un plazo máximo de 72 horas.</li></ul>",
+    "author": "Wilson Alexander Ipiales Guerrón",
+    "category": "tecnologia",
+    "image": "/images/blog/data-protection.jpg",
+    "date": "2025-01-20",
+    "tags": ["protección de datos", "privacidad", "legislación digital"],
+    "readTime": 10
+  }
+]

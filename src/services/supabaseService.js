@@ -8,18 +8,18 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Importar configuración centralizada
-import { supabaseConfig, getBaseUrl } from '../config/appConfig';
+import { supabaseConfig, getBaseUrl, isProduction } from '../config/appConfig';
 
 // Usar la configuración centralizada
 const supabaseUrl = supabaseConfig.url;
-const supabaseKey = process.env.SUPABASE_KEY || supabaseConfig.key;
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || supabaseConfig.key;
 
 // Determinar si estamos en un entorno con problemas CORS (Cloudflare Workers)
 const shouldUseProxyWorker = () => {
   if (typeof window === 'undefined') return false; // SSR
   
   // Forzar el uso del proxy en producción para evitar CORS
-  if (process.env.NODE_ENV === 'production' || 
+  if (isProduction || 
       window.location.hostname.includes('workers.dev') || 
       window.location.hostname !== 'localhost') {
     // Guardar preferencia para uso futuro
@@ -169,37 +169,54 @@ export const supabaseService = {
   // @returns {Promise<{connected: boolean, message: string}>}
   async checkConnection() {
     try {
-      // Intentar una operación básica para probar la conexión
-      const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+      console.log('Verificando conexión con Supabase...');
+      const startTime = Date.now();
+      
+      // Intento simple para verificar conectividad
+      const { data, error } = await this.supabase
+        .from('health_check')
+        .select('*')
+        .limit(1);
+      
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
       
       if (error) {
-        console.error('Error de conexión con Supabase:', error);
-        throw error;
+        console.warn('Error al conectar con Supabase:', error.message);
+        return {
+          connected: false,
+          message: error.message,
+          responseTime
+        };
       }
       
       return {
         connected: true,
-        message: 'Conexión con Supabase establecida correctamente'
+        message: 'Conexión exitosa con Supabase',
+        responseTime,
+        data
       };
     } catch (error) {
       console.error('Error al verificar conexión con Supabase:', error);
       
       // En entorno de desarrollo o worker, simular la conexión para permitir testing
-      if (process.env.NODE_ENV === 'development' || 
+      if (import.meta.env.DEV || 
           (typeof navigator !== 'undefined' && navigator.userAgent.includes('Cloudflare'))) {
         // Solo loggear el error en consola
         console.warn('Error original:', error.message);
-        console.log('Simulando conexión exitosa en worker/desarrollo');
+        
         return {
           connected: true,
-          simulated: true,
-          message: 'Conexión simulada para worker/desarrollo'
+          message: 'Conexión simulada con Supabase (desarrollo)',
+          responseTime: 100,
+          simulated: true
         };
       }
       
       return {
         connected: false,
-        message: error.message || 'Error de conexión con Supabase'
+        message: error.message,
+        error: error.toString()
       };
     }
   }

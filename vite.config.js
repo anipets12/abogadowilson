@@ -1,73 +1,60 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import fs from 'fs'
-import path from 'path'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react({
-      jsxRuntime: 'automatic',
-      babel: {
-        plugins: ['@babel/plugin-transform-react-jsx']
-      }
-    })
-  ],
+  plugins: [react()],
   server: {
-    host: 'localhost',
     port: 5173,
     strictPort: false,
     cors: true,
-    headers: {
-      'Access-Control-Allow-Origin': '*'
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5173',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('proxy error', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Sending Request to the Target:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+          });
+        },
+      },
     },
-    watch: {
-      usePolling: true
-    },
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 5173,
-      clientPort: 5173,
-      timeout: 10000
-    }
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
     }
   },
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js', 'framer-motion']
-  },
   build: {
-    sourcemap: true,
-    minify: 'terser',
-    target: 'es2020',
     outDir: 'dist',
-    assetsDir: 'assets',
     emptyOutDir: true,
+    sourcemap: process.env.NODE_ENV !== 'production',
     rollupOptions: {
-      input: {
-        main: path.resolve(__dirname, 'index.html')
-      },
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
-          supabase: ['@supabase/supabase-js'],
-          animations: ['framer-motion']
-        },
-        format: 'es',
-        entryFileNames: 'assets/[name].[hash].js',
-        chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]'
+          ui: ['@headlessui/react', '@heroicons/react', 'framer-motion'],
+        }
       }
-    },
-    chunkSizeWarningLimit: 1000,
-    // Opción crucial: ignorar advertencias de TypeScript durante la compilación
-    commonjsOptions: {
-      transformMixedEsModules: true,
-      include: [/node_modules/]
     }
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@supabase/supabase-js',
+      'framer-motion',
+      'react-hot-toast'
+    ],
+    force: true
   }
-})
+});

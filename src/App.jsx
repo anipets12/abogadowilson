@@ -430,6 +430,19 @@ function AppContent({ loading, apiConnectionStatus, verifyApiConnection }) {
             } />
             <Route path="/ebooks/download/:id" element={<ProtectedDownload />} />
             
+            {/* Blog Routes */}
+            <Route path="/blog" element={<BlogList />} />
+            <Route path="/blog/article/:articleId" element={<BlogArticle />} />
+            <Route path="/blog/category/:categoryId" element={<BlogList />} />
+            <Route path="/blog/tag/:tagId" element={<BlogList />} />
+            
+            {/* Servicios específicos */}
+            <Route path="/servicios/penal" element={<Penal />} />
+            <Route path="/servicios/civil" element={<Civil />} />
+            <Route path="/servicios/comercial" element={<Comercial />} />
+            <Route path="/servicios/aduanas" element={<Aduanas />} />
+            <Route path="/servicios/transito" element={<Transito />} />
+            
             {/* Ruta de fallback (404) */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

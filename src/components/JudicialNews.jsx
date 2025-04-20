@@ -1,19 +1,11 @@
 /**
  * JudicialNews.jsx
  * Componente para mostrar noticias judiciales en la página principal
- * Versión optimizada para Cloudflare Workers con refuerzo de disponibilidad React
  */
 
-// Asegurarse de que React esté disponible globalmente
-if (typeof window !== 'undefined' && !window.React) {
-  window.React = require('react');
-}
-
-// Importación explícita de React
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-// Envolver en un HOC para garantizar disponibilidad de React
 const JudicialNewsComponent = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
   
@@ -98,26 +90,21 @@ const JudicialNewsComponent = () => {
 
         <div className="flex justify-center space-x-4 mb-8 flex-wrap">
           {categories.map(category => (
-            <motion.button
+            <button
               key={category}
               onClick={() => setActiveCategory(category)}
               className={`px-4 py-2 rounded-lg mb-2 ${activeCategory === category ? 'btn-primary' : 'btn-secondary'}`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
             >
               {category}
-            </motion.button>
+            </button>
           ))}
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredNews.map(item => (
-            <motion.article
+            <article
               key={item.id}
               className="card overflow-hidden"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
             >
               <img
                 src={item.image}
@@ -138,7 +125,7 @@ const JudicialNewsComponent = () => {
                   <span className="text-sm text-secondary-500">{item.readTime} de lectura</span>
                 </div>
               </div>
-            </motion.article>
+            </article>
           ))}
         </div>
 
@@ -149,21 +136,16 @@ const JudicialNewsComponent = () => {
         )}
 
         <div className="mt-12 text-center">
-          <motion.button
+          <button
             className="btn-primary"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
           >
             Cargar Más Noticias
-          </motion.button>
+          </button>
         </div>
 
         {/* Suscripción a Noticias */}
-        <motion.div
+        <div
           className="mt-16 card bg-primary-50 border border-primary-100"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
         >
           <div className="p-8 text-center">
             <h3 className="text-2xl font-bold text-secondary-900 mb-4">
@@ -180,28 +162,19 @@ const JudicialNewsComponent = () => {
                   className="input-field flex-grow"
                   required
                 />
-                <motion.button
+                <button
                   type="submit"
                   className="btn-primary whitespace-nowrap"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   Suscribirse
-                </motion.button>
+                </button>
               </div>
             </form>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
 };
 
-// Envolvemos el componente en un HOC con React garantizado
-const JudicialNews = React.memo(JudicialNewsComponent);
-
-// Renderización con referencia explícita a React
-const JudicialNewsWithReact = (props) => React.createElement(JudicialNews, props);
-
-// Exportamos con React garantizado
-export default JudicialNewsWithReact;
+export default JudicialNewsComponent;

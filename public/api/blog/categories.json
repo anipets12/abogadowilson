@@ -1,0 +1,34 @@
+[
+  {
+    "id": "all",
+    "name": "Todos"
+  },
+  {
+    "id": "penal",
+    "name": "Derecho Penal"
+  },
+  {
+    "id": "civil",
+    "name": "Derecho Civil"
+  },
+  {
+    "id": "transito",
+    "name": "Derecho de Tránsito"
+  },
+  {
+    "id": "laboral",
+    "name": "Derecho Laboral"
+  },
+  {
+    "id": "familia",
+    "name": "Derecho de Familia"
+  },
+  {
+    "id": "empresarial",
+    "name": "Derecho Empresarial"
+  },
+  {
+    "id": "tecnologia",
+    "name": "Derecho y Tecnología"
+  }
+]
