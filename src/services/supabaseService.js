@@ -32,8 +32,12 @@ const shouldUseProxyWorker = () => {
   }
   
   // Verificar si hay indicios previos de problemas CORS
-  return localStorage.getItem('use_proxy') === 'true' || 
-         navigator.userAgent.includes('Cloudflare');
+  try {
+    return localStorage.getItem('use_proxy') === 'true' || 
+           navigator.userAgent.includes('Cloudflare');
+  } catch (e) {
+    return false;
+  }
 };
 
 // Opciones para el cliente de Supabase con proxy CORS si es necesario
@@ -82,27 +86,35 @@ const getSupabaseOptions = () => {
   return options;
 };
 
-// Función para crear cliente con reintento automático
-export const createSupabaseClient = (maxRetries = 3) => {
-  const withRetry = async (fn, retries = maxRetries) => {
+// Función de reintento para usar en todos los servicios
+const withRetry = async (fn, maxRetries = 3) => {
+  let retries = maxRetries;
+  while (retries >= 0) {
     try {
       return await fn();
     } catch (error) {
       if (retries <= 0) throw error;
-      console.log(`Attempt ${maxRetries - retries + 1} failed: ${error.message}. Retrying...`);
+      console.log(`Intento ${maxRetries - retries + 1} falló: ${error.message}. Reintentando...`);
       await new Promise(resolve => setTimeout(resolve, 1000));
-      return withRetry(fn, retries - 1);
+      retries--;
     }
-  };
+  }
+};
 
-  return withRetry(() => {
+// Función para crear cliente con reintento automático
+export const createSupabaseClient = (maxRetries = 3) => {
+  try {
     // Obtener opciones con posible proxy CORS
     const options = getSupabaseOptions();
     return createClient(supabaseUrl, supabaseKey, options);
-  });
+  } catch (error) {
+    console.error('Error al crear cliente Supabase:', error);
+    // Fallback básico
+    return createClient(supabaseUrl, supabaseKey);
+  }
 };
 
-// Crear cliente de Supabase con reintento
+// Crear cliente de Supabase
 export const supabase = createSupabaseClient();
 
 // Función para validar la conectividad
@@ -117,23 +129,6 @@ export const testSupabaseConnection = async () => {
     console.error('Error al probar conexión con Supabase:', error);
     
     // Si hay un error de CORS, intentar utilizar el proxy
-    if (error.message?.includes('NetworkError') || error.message?.includes('Failed to fetch')) {
-      console.log('Detectado error de red. Activando proxy CORS...');
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('use_proxy', 'true');
-      }
-      
-      // Intentar con el proxy
-      try {
-        const response = await fetch(`${window.location.origin}/api/check-connection`);
-        if (response.ok) {
-          return { connected: true, usingProxy: true, error: null };
-        }
-      } catch (proxyError) {
-        console.error('Error al usar proxy:', proxyError);
-      }
-    }
-    
     return { connected: false, error };
   }
 };
@@ -141,64 +136,37 @@ export const testSupabaseConnection = async () => {
 // Servicio principal para Supabase
 export const supabaseService = {
   supabase,
-
-  /**
-   * Verifica la conexión con la API de Supabase
-   * @returns {Promise<{connected: boolean, message: string}>}
-   */
+  
+  // Verifica la conexión con la API de Supabase
+  // @returns {Promise<{connected: boolean, message: string}>}
   async checkConnection() {
     try {
-      const startTime = Date.now();
+      // Intentar una operación básica para probar la conexión
+      const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
       
-      // Utilizar un timeout para prevenir que la llamada se cuelgue
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout al verificar conexión')), 5000);
-      });
-      
-      // Probar la conexión con nuestra función de prueba
-      const connectionPromise = testSupabaseConnection();
-      
-      // Usar Promise.race para implementar el timeout
-      const result = await Promise.race([connectionPromise, timeoutPromise]);
-      
-      const elapsed = Date.now() - startTime;
-      
-      if (!result.connected) {
-        throw new Error(result.error?.message || 'Error de conexión');
+      if (error) {
+        console.error('Error de conexión con Supabase:', error);
+        throw error;
       }
       
       return {
         connected: true,
-        usingProxy: result.usingProxy,
-        message: `Conexión exitosa ${result.usingProxy ? '(vía proxy) ' : ''}(${elapsed}ms)`
+        message: 'Conexión con Supabase establecida correctamente'
       };
     } catch (error) {
-      console.error('Error al verificar conexión:', error);
+      console.error('Error al verificar conexión con Supabase:', error);
       
-      // Intentar el proxy explícitamente en cualquier contexto con problemas de conexión
-      if (typeof window !== 'undefined') {
-          try {
-            console.log('Intentando conexión vía proxy en worker/desarrollo');
-            const response = await fetch(`${window.location.origin}/api/check-connection`);
-            if (response.ok) {
-              return {
-                connected: true,
-                usingProxy: true,
-                message: 'Conexión exitosa vía proxy'
-              };
-            }
-          } catch (proxyError) {
-            console.error('Error al usar proxy:', proxyError);
-          }
-          
-          // Si todo falla, simular conexión exitosa
-          console.log('Simulando conexión exitosa en worker/desarrollo');
-          return {
-            connected: true,
-            simulated: true,
-            message: 'Conexión simulada para worker/desarrollo'
-          };
-        }
+      // En entorno de desarrollo o worker, simular la conexión para permitir testing
+      if (process.env.NODE_ENV === 'development' || 
+          (typeof navigator !== 'undefined' && navigator.userAgent.includes('Cloudflare'))) {
+        // Solo loggear el error en consola
+        console.warn('Error original:', error.message);
+        console.log('Simulando conexión exitosa en worker/desarrollo');
+        return {
+          connected: true,
+          simulated: true,
+          message: 'Conexión simulada para worker/desarrollo'
+        };
       }
       
       return {
@@ -206,446 +174,385 @@ export const supabaseService = {
         message: error.message || 'Error de conexión con Supabase'
       };
     }
-  },
+  }
 };
 
 // Servicio mejorado para autenticación
 export const authService = {
   // Iniciar sesión con Google
   async signInWithGoogle() {
-    return withRetry(async () => {
-      try {
-        // Definir URL de redirección
-        const redirectTo = `${getBaseUrl()}/auth/callback`;
-        
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo,
-            queryParams: {
-              access_type: 'offline',
-              prompt: 'consent',
-            }
-          }
-        });
-        
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error('Error en inicio de sesión con Google:', error);
-        
-        // Si estamos en un worker, permitir modo simulado
-        if (typeof window !== 'undefined' && window.location.hostname.includes('workers.dev')) {
-          console.log('Modo simulado para autenticación social en Workers');
-          return { 
-            data: { 
-              url: `${getBaseUrl()}/panel`,
-              provider: 'google',
-              simulated: true 
-            }, 
-            error: null 
-          };
-        }
-        
-        return { data: null, error };
-      }
-    });
+    try {
+      // Definir URL de redirección
+      const redirectTo = `${getBaseUrl()}/auth/callback`;
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      
+      if (error) throw error;
+      
+      // Retornar información o URL para redirección
+      return {
+        url: data?.url,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error al iniciar sesión con Google:', error);
+      return { url: null, error };
+    }
   },
   
   // Iniciar sesión con Facebook
   async signInWithFacebook() {
-    return withRetry(async () => {
-      try {
-        // Definir URL de redirección
-        const redirectTo = `${getBaseUrl()}/auth/callback`;
-        
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'facebook',
-          options: {
-            redirectTo,
-            scopes: 'email,public_profile'
-          }
-        });
-        
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error('Error en inicio de sesión con Facebook:', error);
-        
-        // Si estamos en un worker, permitir modo simulado
-        if (typeof window !== 'undefined' && window.location.hostname.includes('workers.dev')) {
-          console.log('Modo simulado para autenticación social en Workers');
-          return { 
-            data: { 
-              url: `${getBaseUrl()}/panel`,
-              provider: 'facebook',
-              simulated: true 
-            }, 
-            error: null 
-          };
-        }
-        
-        return { data: null, error };
-      }
-    });
+    try {
+      // Definir URL de redirección
+      const redirectTo = `${getBaseUrl()}/auth/callback`;
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: {
+          redirectTo,
+          scopes: 'email,public_profile',
+        },
+      });
+      
+      if (error) throw error;
+      
+      // Retornar información o URL para redirección
+      return {
+        url: data?.url,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error al iniciar sesión con Facebook:', error);
+      return { url: null, error };
+    }
   },
   
   // Procesar callback de autenticación OAuth
   async handleAuthCallback() {
-    return withRetry(async () => {
-      try {
-        // Obtener sesión de URL
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) throw error;
-        return { session: data.session, error: null };
-      } catch (error) {
-        console.error('Error al procesar callback de autenticación:', error);
-        return { session: null, error };
-      }
-    });
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) throw error;
+      
+      return {
+        session: data.session,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error al procesar callback de autenticación:', error);
+      return { session: null, error };
+    }
   },
   
   // Registrar nuevo usuario
   async register(email, password, userData) {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: userData
-          }
-        });
-
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error('Error en registro:', error);
-        return { data: null, error };
-      }
-    });
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: userData || {}
+        }
+      });
+      
+      if (error) throw error;
+      
+      return { user: data.user, error: null };
+    } catch (error) {
+      console.error('Error al registrar usuario:', error);
+      return { user: null, error };
+    }
   },
-
+  
   // Iniciar sesión
   async login(email, password) {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error('Error en login:', error);
-        return { data: null, error };
-      }
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
+      return { user: data.user, session: data.session, error: null };
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error);
+      return { user: null, session: null, error };
+    }
   },
-
+  
   // Cerrar sesión
   async signOut() {
-    return withRetry(async () => {
-      try {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-        return { error: null };
-      } catch (error) {
-        console.error('Error en signOut:', error);
-        return { error };
-      }
-    });
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) throw error;
+      
+      return { error: null };
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      return { error };
+    }
   },
-
+  
   // Verificar sesión actual
   async getSession() {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error('Error al obtener sesión:', error);
-        return { data: null, error };
-      }
-    });
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) throw error;
+      
+      return { session: data.session, error: null };
+    } catch (error) {
+      console.error('Error al obtener sesión:', error);
+      return { session: null, error };
+    }
   },
-
+  
   // Obtener usuario actual
   async getCurrentUser() {
-    return withRetry(async () => {
-      try {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-        
-        if (!sessionData.session) {
-          return { user: null, error: null };
-        }
-        
-        const { data, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      
+      if (error) throw error;
+      
+      if (data?.user) {
         return { user: data.user, error: null };
-      } catch (error) {
-        console.error('Error al obtener usuario actual:', error);
-        return { user: null, error };
+      } else {
+        return { user: null, error: null };
       }
-    });
+    } catch (error) {
+      console.error('Error al obtener usuario actual:', error);
+      return { user: null, error };
+    }
   },
   
   // Actualizar usuario
   async updateUser(userData) {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase.auth.updateUser({
-          data: userData
-        });
-        
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error('Error al actualizar usuario:', error);
-        return { data: null, error };
-      }
-    });
-  },
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: userData
+      });
+      
+      if (error) throw error;
+      
+      return { user: data.user, error: null };
+    } catch (error) {
+      console.error('Error al actualizar usuario:', error);
+      return { user: null, error };
+    }
+  }
 };
 
 // Servicio mejorado para operaciones CRUD
 export const dataService = {
   // Comprobar conexión (util para diagnóstico)
   async checkConnection() {
-    // Si estamos en entorno de Cloudflare Workers o desarrollo, devolver conexión simulada
-    if (typeof window !== 'undefined' && 
-        (window.location.hostname.includes('workers.dev') || 
-         process.env.NODE_ENV === 'development')) {
-      console.log('Modo de conexión simulada activado para Workers/desarrollo');
+    try {
+      // Realizar una consulta mínima para verificar conectividad
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('count', { count: 'exact', head: true });
+      
+      if (error) {
+        console.error('Error al verificar conexión:', error);
+        
+        // Verificar si es error de permisos (esto es esperado si la tabla no existe)
+        if (error.code === 'PGRST116') {
+          return {
+            connected: true,
+            message: 'Conectado, pero sin acceso a tabla de prueba'
+          };
+        }
+        
+        // Si es error de CORS
+        if (error.message && error.message.includes('fetch')) {
+          return {
+            connected: false,
+            corsError: true,
+            message: 'Error CORS detectado, considere usar proxy'
+          };
+        }
+        
+        throw error;
+      }
+      
       return {
         connected: true,
-        message: 'Conexión simulada para entorno de Cloudflare Workers',
-        simulated: true
-      };
-    }
-    
-    try {
-      // Intentar una operación simple para verificar conectividad con timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout al conectar con Supabase')), 5000);
-      });
-      
-      const connectionPromise = supabase
-        .from('health_check')
-        .select('*')
-        .limit(1);
-      
-      // Usar el que resuelva primero (conexión o timeout)
-      const { data, error } = await Promise.race([connectionPromise, timeoutPromise]);
-      
-      // Si hay error pero estamos en workers.dev, continuar en modo degradado
-      if (error && typeof window !== 'undefined' && window.location.hostname.includes('workers.dev')) {
-        console.warn('Error de conexión en workers.dev, continuando en modo degradado:', error.message);
-        return {
-          connected: true,
-          message: 'Modo degradado activo',
-          degraded: true
-        };
-      }
-      
-      return { 
-        connected: !error, 
-        message: error ? `Error de conexión: ${error.message}` : 'Conexión exitosa'
+        message: 'Conexión exitosa a Supabase'
       };
     } catch (error) {
-      console.error('Error al verificar conexión:', error);
-      
-      // En Cloudflare Workers, permitir continuar en modo degradado
-      if (typeof window !== 'undefined' && window.location.hostname.includes('workers.dev')) {
-        return {
-          connected: true,
-          message: 'Modo degradado activo',
-          degraded: true
-        };
-      }
-      return { connected: false, message: `Error: ${error.message}` };
+      return {
+        connected: false,
+        message: error.message
+      };
     }
   },
   
   // Obtener todos los registros
   async getAll(table, options = {}) {
-    return withRetry(async () => {
-      try {
-        let query = supabase.from(table).select('*');
-        
-        // Aplicar filtros si existen
-        if (options.filters) {
-          for (const [column, value] of Object.entries(options.filters)) {
-            query = query.eq(column, value);
-          }
-        }
-        
-        // Aplicar límite si existe
-        if (options.limit) {
-          query = query.limit(options.limit);
-        }
-        
-        // Aplicar ordenamiento si existe
-        if (options.orderBy) {
-          query = query.order(options.orderBy.column, { 
-            ascending: options.orderBy.ascending 
-          });
-        }
-        
-        const { data, error } = await query;
-        
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error(`Error al obtener datos de ${table}:`, error);
-        return { data: null, error };
+    try {
+      let query = supabase.from(table).select('*');
+      
+      // Aplicar límite si se proporciona
+      if (options.limit) {
+        query = query.limit(options.limit);
       }
-    });
+      
+      // Aplicar ordenamiento si se proporciona
+      if (options.orderBy) {
+        query = query.order(options.orderBy.column, { 
+          ascending: options.orderBy.ascending
+        });
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error(`Error al obtener registros de ${table}:`, error);
+      return { data: null, error };
+    }
   },
   
   // Obtener un registro por ID
   async getById(table, id) {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase
-          .from(table)
-          .select('*')
-          .eq('id', id)
-          .single();
-        
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error(`Error al obtener registro ${id} de ${table}:`, error);
-        return { data: null, error };
-      }
-    });
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error(`Error al obtener registro ${id} de ${table}:`, error);
+      return { data: null, error };
+    }
   },
   
   // Crear un nuevo registro
   async create(table, data) {
-    return withRetry(async () => {
-      try {
-        const { data: responseData, error } = await supabase
-          .from(table)
-          .insert([data])
-          .select();
-        
-        if (error) throw error;
-        return { data: responseData[0], error: null };
-      } catch (error) {
-        console.error(`Error al crear registro en ${table}:`, error);
-        return { data: null, error };
-      }
-    });
+    try {
+      const { data: responseData, error } = await supabase
+        .from(table)
+        .insert([data])
+        .select();
+      
+      if (error) throw error;
+      return { data: responseData[0], error: null };
+    } catch (error) {
+      console.error(`Error al crear registro en ${table}:`, error);
+      return { data: null, error };
+    }
   },
   
   // Actualizar un registro
   async update(table, id, data) {
-    return withRetry(async () => {
-      try {
-        const { data: responseData, error } = await supabase
-          .from(table)
-          .update(data)
-          .eq('id', id)
-          .select();
-        
-        if (error) throw error;
-        return { data: responseData[0], error: null };
-      } catch (error) {
-        console.error(`Error al actualizar registro ${id} en ${table}:`, error);
-        return { data: null, error };
-      }
-    });
+    try {
+      const { data: responseData, error } = await supabase
+        .from(table)
+        .update(data)
+        .eq('id', id)
+        .select();
+      
+      if (error) throw error;
+      return { data: responseData[0], error: null };
+    } catch (error) {
+      console.error(`Error al actualizar registro ${id} en ${table}:`, error);
+      return { data: null, error };
+    }
   },
   
   // Eliminar un registro
   async delete(table, id) {
-    return withRetry(async () => {
-      try {
-        const { error } = await supabase
-          .from(table)
-          .delete()
-          .eq('id', id);
-        
-        if (error) throw error;
-        return { error: null };
-      } catch (error) {
-        console.error(`Error al eliminar registro ${id} de ${table}:`, error);
-        return { error };
-      }
-    });
+    try {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error(`Error al eliminar registro ${id} de ${table}:`, error);
+      return { error };
+    }
   },
   
   // Búsqueda personalizada
   async search(table, query = {}) {
-    return withRetry(async () => {
-      try {
-        let supabaseQuery = supabase.from(table).select('*');
-        
-        // Aplicar filtros de búsqueda
-        if (query.filters) {
-          for (const [column, filter] of Object.entries(query.filters)) {
-            if (filter.type === 'eq') {
-              supabaseQuery = supabaseQuery.eq(column, filter.value);
-            } else if (filter.type === 'like') {
-              supabaseQuery = supabaseQuery.ilike(column, `%${filter.value}%`);
-            } else if (filter.type === 'in') {
-              supabaseQuery = supabaseQuery.in(column, filter.value);
-            } else if (filter.type === 'gt') {
-              supabaseQuery = supabaseQuery.gt(column, filter.value);
-            } else if (filter.type === 'lt') {
-              supabaseQuery = supabaseQuery.lt(column, filter.value);
-            }
+    try {
+      let supabaseQuery = supabase.from(table).select('*');
+      
+      // Aplicar filtros de búsqueda
+      if (query.filters) {
+        for (const [column, filter] of Object.entries(query.filters)) {
+          if (filter.type === 'eq') {
+            supabaseQuery = supabaseQuery.eq(column, filter.value);
+          } else if (filter.type === 'like') {
+            supabaseQuery = supabaseQuery.ilike(column, `%${filter.value}%`);
+          } else if (filter.type === 'in') {
+            supabaseQuery = supabaseQuery.in(column, filter.value);
+          } else if (filter.type === 'gt') {
+            supabaseQuery = supabaseQuery.gt(column, filter.value);
+          } else if (filter.type === 'lt') {
+            supabaseQuery = supabaseQuery.lt(column, filter.value);
           }
         }
-        
-        // Aplicar límite
-        if (query.limit) {
-          supabaseQuery = supabaseQuery.limit(query.limit);
-        }
-        
-        // Aplicar ordenamiento
-        if (query.orderBy) {
-          supabaseQuery = supabaseQuery.order(query.orderBy.column, {
-            ascending: query.orderBy.ascending
-          });
-        }
-        
-        const { data, error } = await supabaseQuery;
-        
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error(`Error al buscar en ${table}:`, error);
-        return { data: null, error };
       }
-    });
+      
+      // Aplicar límite
+      if (query.limit) {
+        supabaseQuery = supabaseQuery.limit(query.limit);
+      }
+      
+      // Aplicar ordenamiento
+      if (query.orderBy) {
+        supabaseQuery = supabaseQuery.order(query.orderBy.column, {
+          ascending: query.orderBy.ascending
+        });
+      }
+      
+      const { data, error } = await supabaseQuery;
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error(`Error al buscar en ${table}:`, error);
+      return { data: null, error };
+    }
   },
   
   // Upload de archivos
   async uploadFile(bucket, filePath, file) {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-        
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        console.error(`Error al subir archivo a ${bucket}:`, error);
-        return { data: null, error };
-      }
-    });
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error(`Error al subir archivo a ${bucket}:`, error);
+      return { data: null, error };
+    }
   },
   
   // Obtener URL pública de un archivo
