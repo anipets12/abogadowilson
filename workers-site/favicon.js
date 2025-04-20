@@ -13,17 +13,19 @@ export const DEFAULT_FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" view
 
 /**
  * Maneja solicitudes de favicon
+ * 
+ * @param {FetchEvent} event - El evento fetch de Cloudflare Workers
+ * @param {Object} corsHeaders - Los encabezados CORS a aplicar
+ * @returns {Response} Una respuesta HTTP con el favicon solicitado
  */
 export async function handleFaviconRequest(event, corsHeaders) {
   const url = new URL(event.request.url);
-  let faviconPath = '';
   let contentType = '';
   
+  // Determinar el tipo de contenido basado en la extensión solicitada
   if (url.pathname === '/favicon.ico') {
-    faviconPath = 'favicon.ico';
     contentType = 'image/x-icon';
   } else if (url.pathname === '/favicon.svg') {
-    faviconPath = 'favicon.svg';
     contentType = 'image/svg+xml';
   } else {
     // Si no es una ruta de favicon conocida, usar el SVG predeterminado
@@ -38,62 +40,23 @@ export async function handleFaviconRequest(event, corsHeaders) {
   }
 
   try {
-    // Intentar buscar el favicon en el almacenamiento
-    const { getAssetFromKV } = require('@cloudflare/kv-asset-handler');
-    
-    try {
-      // Intentar servir directamente desde el directorio public
-      const response = await getAssetFromKV(event, {
-        mapRequestToAsset: req => new Request(`${new URL(req.url).origin}/${faviconPath}`, req)
-      });
-      
-      if (response && response.status === 200) {
-        const headers = new Headers(response.headers);
-        headers.set('Cache-Control', 'public, max-age=86400');
-        
-        // Añadir encabezados CORS
-        Object.entries(corsHeaders).forEach(([key, value]) => {
-          headers.set(key, value);
-        });
-        
-        return new Response(response.body, {
-          status: 200,
-          headers
-        });
-      }
-    } catch (e) {
-      console.error('Error cargando favicon desde KV:', e);
-    }
-    
-    // Si no se pudo obtener desde KV o falló de alguna manera, usar el SVG predeterminado
-    if (contentType === 'image/svg+xml') {
-      return new Response(DEFAULT_FAVICON_SVG, { 
-        status: 200,
-        headers: {
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=86400',
-          ...corsHeaders
-        }
-      });
-    }
-    
-    // Para favicon.ico, crear una respuesta vacía con 200 para evitar errores en la consola
-    return new Response(null, { 
+    // Para evitar error 404, siempre usamos el SVG predeterminado
+    // independientemente de la extensión solicitada
+    return new Response(DEFAULT_FAVICON_SVG, { 
       status: 200,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': contentType === 'image/x-icon' ? 'image/x-icon' : 'image/svg+xml',
         'Cache-Control': 'public, max-age=86400',
         ...corsHeaders
       }
     });
   } catch (e) {
-    console.error('Error general en el manejo del favicon:', e);
-    
-    // Si todo falla, devolver una respuesta con código 200 pero vacía para evitar errores
-    return new Response(null, { 
+    console.error('Error al servir favicon:', e);
+    // Respuesta fallback para cualquier error
+    return new Response(DEFAULT_FAVICON_SVG, { 
       status: 200,
       headers: {
-        'Content-Type': 'image/x-icon',
+        'Content-Type': contentType === 'image/x-icon' ? 'image/x-icon' : 'image/svg+xml',
         'Cache-Control': 'public, max-age=86400',
         ...corsHeaders
       }
