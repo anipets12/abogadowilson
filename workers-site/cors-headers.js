@@ -128,4 +128,13 @@ function handleOptions(request) {
   });
 }
 
-export { addCorsHeaders, handleOptions, isOriginAllowed };
+// Cabeceras CORS básicas para reutilizar en respuestas
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, apikey, x-api-key, Range, Content-Range, X-CSRF-Token',
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Max-Age': '86400'
+};
+
+export { addCorsHeaders, handleOptions, isOriginAllowed, corsHeaders };
