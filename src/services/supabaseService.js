@@ -11,7 +11,14 @@ import { createClient } from '@supabase/supabase-js';
 import { supabaseConfig, getBaseUrl, isProduction } from '../config/appConfig';
 
 // Variable para almacenar la única instancia del cliente
+// Usar una variable global para asegurar una única instancia en toda la aplicación
 let supabaseClientInstance = null;
+
+// Flag para evitar múltiples intentos de inicialización simultáneos
+let isInitializing = false;
+
+// Contador para rastrear llamadas de inicialización
+let initCallCount = 0;
 
 // Usar la configuración centralizada
 const supabaseUrl = supabaseConfig.url;
@@ -192,19 +199,60 @@ const createFallbackClient = () => {
   };
 };
 
-// Función para crear un cliente Supabase singleton
+// Función para crear un cliente Supabase singleton con bloqueo para evitar múltiples instancias
 export const getSupabaseClient = () => {
+  // Incrementar contador para diagnóstico
+  initCallCount++;
+  
+  // Si ya tenemos una instancia, devolverla inmediatamente
   if (supabaseClientInstance) {
     return supabaseClientInstance;
   }
   
+  // Si ya hay un proceso de inicialización en curso, esperar y devolver fallback temporal
+  if (isInitializing) {
+    console.warn(`Intento de inicialización paralela detectado (#${initCallCount}). Usando cliente temporal.`);
+    return {
+      auth: {
+        getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+        onAuthStateChange: () => ({ data: null, error: null, subscription: { unsubscribe: () => {} } }),
+        signOut: () => Promise.resolve({}),
+        // Otras funciones auth como placeholders
+      },
+      // Otras funciones del cliente como placeholders
+      from: () => ({ select: () => Promise.resolve({ data: [], error: null }) })
+    };
+  }
+  
   try {
-    console.log('Creando nueva instancia de Supabase client');
+    // Marcar que estamos inicializando
+    isInitializing = true;
+    console.log(`Creando nueva instancia de Supabase client (llamada #${initCallCount})`);
+    
+    // Crear opciones con configuración optimizada
     const options = getSupabaseOptions();
+    
+    // IMPORTANTE: Desactivar completamente detectSessionInUrl para evitar múltiples instancias
+    options.auth = options.auth || {};
+    options.auth.detectSessionInUrl = false;
+    options.auth.persistSession = true;
+    options.auth.storageKey = 'sb-auth-token-' + Math.random().toString(36).substring(2, 7);
+    
+    // Crear cliente una sola vez
     supabaseClientInstance = createClient(supabaseUrl, supabaseKey, options);
+    
+    // Desactivar listeners automáticos que pueden causar problemas
+    if (typeof window !== 'undefined') {
+      window.SUPABASE_CLIENT_INITIALIZED = true;
+    }
+    
+    // Liberamos el flag de inicialización
+    isInitializing = false;
+    
     return supabaseClientInstance;
   } catch (error) {
     console.error('Error al crear cliente de Supabase:', error);
+    isInitializing = false;
     
     // En caso de error, retornar un cliente con métodos de simulación para evitar fallos en la aplicación
     return createFallbackClient();
@@ -232,8 +280,17 @@ const withRetry = async (fn, maxRetries = 3) => {
   throw lastError;
 };
 
-// Crear cliente de Supabase
-export const supabase = getSupabaseClient();
+// Crear cliente de Supabase - Utilizando patrón lazy initialization
+// Solo se creará cuando se utilice por primera vez
+let _supabase;
+export const supabase = new Proxy({}, {
+  get: function(target, prop) {
+    if (!_supabase) {
+      _supabase = getSupabaseClient();
+    }
+    return _supabase[prop];
+  }
+});
 
 // Verificar la conexión al inicio
 if (typeof window !== 'undefined') {

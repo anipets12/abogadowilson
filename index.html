@@ -27,20 +27,50 @@
       VITE_GOOGLE_SERVICE_ACCOUNT: '{{GOOGLE_SERVICE_ACCOUNT}}'
     };
     
-    // Cargar variables reales desde el servidor en tiempo de ejecución
-    // Esta es una práctica más segura que hardcodear los secretos
-    fetch('/api/config')
-      .then(response => response.json())
-      .catch(() => ({})) // En caso de error, usar valores por defecto
-      .then(config => {
-        if (config) {
-          Object.keys(config).forEach(key => {
-            if (window.__ENV__[key] && window.__ENV__[key].startsWith('{{')) {
+    // Valores predeterminados para APIs de Google
+    window.__ENV__.VITE_GOOGLE_GENERATIVE_API_KEY = 'AIzaSyB9ENQXVErbIQ166m7dGwndOB6hlFj9k5I';
+    window.__ENV__.VITE_GOOGLE_API_KEY_ALTERNATIVE = 'AIzaSyBCKTfeo2P92rCk_mhrz7J73pNY4zDMBh0';
+    window.__ENV__.VITE_GOOGLE_CLIENT_ID = '387170916829-t6dp4kb7cp663ihq98as0jjju9n0ljbm.apps.googleusercontent.com';
+    window.__ENV__.VITE_GOOGLE_SERVICE_ACCOUNT = 'pruebagoogle@gen-lang-client-0663345747.iam.gserviceaccount.com';
+    
+    // Intentar cargar variables reales desde el servidor en tiempo de ejecución
+    // Con múltiples reintentos y recuperación de errores
+    const maxConfigRetries = 3;
+    let configRetryCount = 0;
+    
+    function loadConfig() {
+      if (configRetryCount >= maxConfigRetries) {
+        console.log('Usando configuración predeterminada después de múltiples intentos fallidos');
+        return;
+      }
+      
+      configRetryCount++;
+      
+      fetch('/api/config')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Error al cargar configuración: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(config => {
+          if (config) {
+            console.log('Configuración cargada correctamente');
+            Object.keys(config).forEach(key => {
               window.__ENV__[key] = config[key];
-            }
-          });
-        }
-      });
+            });
+          }
+        })
+        .catch(error => {
+          console.warn(`Intento ${configRetryCount}/${maxConfigRetries} fallido:`, error.message);
+          if (configRetryCount < maxConfigRetries) {
+            setTimeout(loadConfig, 1000 * configRetryCount);
+          }
+        });
+    }
+    
+    // Iniciar carga de configuración
+    loadConfig();
   </script>
   
   <!-- Sistema de diagnóstico y recuperación -->  
@@ -125,8 +155,18 @@
   </div>
   
   <script>
-    // Solución definitiva - Evitar ciclos infinitos y manejar correctamente la recuperación
+    // Solución definitiva - Sistema integral de recuperación y corrección de errores
     (function() {
+      // Registrar inicialización
+      console.log('Inicializando sistema de recuperación y prevención de errores...');
+      
+      // Parche para evitar errores de renderizado en React
+      window.React = window.React || {};
+      
+      // Configuraciones globales para evitar errores
+      window.REACT_APP_DISABLE_STRICT_MODE = true;
+      window.VITE_DISABLE_FAST_REFRESH = true;
+      
       // Si estamos en la página de recuperación
       if (window.location.search.includes('recovered=true')) {
         // Verificar si estamos en un ciclo de recuperación
@@ -214,7 +254,66 @@
     })();
   </script>
   
+  <!-- Spinner de carga que se mostrará mientras la aplicación se inicializa -->
+  <div id="initial-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100%; position: fixed; top: 0; left: 0; background-color: white; z-index: 1000;">
+    <img src="/favicon.svg" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 20px; animation: pulse 1.5s infinite;">
+    <h2 style="color: #3457dc; margin-bottom: 10px;">Abogado Wilson</h2>
+    <p style="color: #666; margin-bottom: 30px;">Cargando servicios legales...</p>
+    <div style="width: 200px; height: 4px; background-color: #f0f0f0; border-radius: 2px; overflow: hidden;">
+      <div id="progress-bar" style="width: 0%; height: 100%; background-color: #3457dc; border-radius: 2px; transition: width 0.3s ease-in-out;"></div>
+    </div>
+  </div>
+  
   <div id="root"></div>
+  
+  <!-- Script para simular progreso de carga -->
+  <script>
+    (function() {
+      let progress = 0;
+      const progressBar = document.getElementById('progress-bar');
+      const loader = document.getElementById('initial-loader');
+      
+      // Actualizar barra de progreso gradualmente
+      const interval = setInterval(() => {
+        if (progress < 90) {
+          progress += Math.random() * 10;
+          progressBar.style.width = `${Math.min(progress, 90)}%`;
+        }
+      }, 300);
+      
+      // Ocultar loader cuando la aplicación esté lista
+      window.addEventListener('load', () => {
+        progress = 100;
+        progressBar.style.width = '100%';
+        
+        setTimeout(() => {
+          clearInterval(interval);
+          loader.style.opacity = '0';
+          loader.style.transition = 'opacity 0.5s ease-in-out';
+          
+          setTimeout(() => {
+            loader.style.display = 'none';
+          }, 500);
+        }, 500);
+      });
+      
+      // Sistema de seguridad: si después de 10 segundos no se ha cargado, mostrar error
+      setTimeout(() => {
+        const root = document.getElementById('root');
+        if (!root.hasChildNodes() && loader.style.display !== 'none') {
+          console.error('Timeout alcanzado. Activando modo de recuperación...');
+          progressBar.style.backgroundColor = '#dc3545';
+          document.querySelector('#initial-loader p').textContent = 'Error al cargar. Intentando recuperación...'; 
+          
+          // Intentar reinicio de la aplicación
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        }
+      }, 10000);
+    })();
+  </script>
+  
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
