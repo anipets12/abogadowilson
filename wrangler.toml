@@ -24,9 +24,10 @@ CORS_ORIGIN = "*"
 # No se necesita especificar el KV namespace manualmente
 
 # D1 Databases
-[[d1_databases]]
-binding = "DB"
-database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176"
+# D1 no es necesario para un sitio estático, lo comentamos por ahora
+# [[d1_databases]]
+# binding = "DB"
+# database_id = "f00d15a2-6069-4f19-a8eb-6f2217af2176"
 
 [triggers]
 crons = ["0 0 * * *"] # Daily maintenance

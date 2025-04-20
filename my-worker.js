@@ -1,27 +1,29 @@
+// Worker para servir activos estáticos y manejar enrutamiento SPA
+
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
 const DEBUG = false;
 
-addEventListener('fetch', event => {
-  try {
-    event.respondWith(handleEvent(event));
-  } catch (e) {
-    if (DEBUG) {
-      return event.respondWith(
-        new Response(e.message || e.toString(), {
+export default {
+  async fetch(request, env, ctx) {
+    try {
+      return await handleEvent(request, env, ctx);
+    } catch (e) {
+      if (DEBUG) {
+        return new Response(e.message || e.toString(), {
           status: 500,
-        }),
-      );
+        });
+      }
+      return new Response('Internal Error', { status: 500 });
     }
-    event.respondWith(new Response('Internal Error', { status: 500 }));
   }
-});
+};
 
-async function handleEvent(event) {
-  const url = new URL(event.request.url);
+async function handleEvent(request, env, ctx) {
+  const url = new URL(request.url);
   
   // Manejar solicitudes CORS OPTIONS
-  if (event.request.method === 'OPTIONS') {
+  if (request.method === 'OPTIONS') {
     return new Response(null, {
       headers: {
         'Access-Control-Allow-Origin': '*',
@@ -33,64 +35,93 @@ async function handleEvent(event) {
   }
 
   try {
-    // Configurar opciones para servir activos estáticos
+    // Para las solicitudes a la API, redirigir a la función API
+    if (url.pathname.startsWith('/api')) {
+      return await handleApiRequest(request, url, env);
+    }
+
+    // Servir activos estáticos o la aplicación SPA
     const options = {
-      cacheControl: {
-        browserTTL: 60 * 60 * 24, // 1 día
-        edgeTTL: 60 * 60 * 24 * 30, // 30 días
-        bypassCache: false,
-      },
-      // Esta función mapea rutas SPA a index.html
+      // Opciones de personalización si es necesario
       mapRequestToAsset: req => {
-        const url = new URL(req.url);
+        // Redirigir todas las navegaciones a index.html para SPA
+        const parsedUrl = new URL(req.url);
+        const pathname = parsedUrl.pathname;
         
-        // Redirigir rutas de SPA sin extensión a index.html
-        if (!url.pathname.includes('.') && url.pathname !== '/') {
-          console.log(`SPA route detected: ${url.pathname}, mapping to /index.html`);
-          return new Request(`${url.origin}/index.html`, req);
+        // Si la ruta no incluye una extensión, servir index.html
+        if (!pathname.includes('.')) {
+          return new Request(`${parsedUrl.origin}/index.html`, req);
         }
-        
         return req;
       },
     };
 
+    // Crear el evento para getAssetFromKV
+    const event = {
+      request,
+      waitUntil: ctx.waitUntil.bind(ctx)
+    };
+
     // Intentar obtener el activo estático de KV
-    const page = await getAssetFromKV(event, options);
+    const page = await getAssetFromKV(event, {
+      ...options,
+      ASSET_NAMESPACE: env.__STATIC_CONTENT,
+      ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST
+    });
 
     // Agregar headers de seguridad
     const response = new Response(page.body, page);
     response.headers.set('X-XSS-Protection', '1; mode=block');
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
-    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.headers.set('Referrer-Policy', 'no-referrer-when-downgrade');
     response.headers.set('Access-Control-Allow-Origin', '*');
-    
+
     return response;
   } catch (e) {
-    console.error(`Error serving asset: ${e.message}`);
-    
-    // Si es una ruta SPA, intentar servir index.html
-    if (!url.pathname.includes('.')) {
-      try {
-        const indexRequest = new Request(`${url.origin}/index.html`, event.request);
-        const indexPage = await getAssetFromKV(
-          { request: indexRequest, waitUntil: event.waitUntil.bind(event) },
-          options
-        );
-        
-        // Agregar headers de seguridad
-        const response = new Response(indexPage.body, {
-          headers: indexPage.headers,
-          status: 200,
-        });
-        response.headers.set('X-XSS-Protection', '1; mode=block');
-        
-        return response;
-      } catch (indexError) {
-        console.error(`Error serving index.html: ${indexError.message}`);
-      }
+    // Si hay un error, intentar servir index.html
+    if (DEBUG) {
+      return new Response(e.message || e.toString(), { status: 500 });
     }
-    
-    return new Response('Archivo no encontrado', { status: 404 });
+
+    try {
+      // Crear el evento para getAssetFromKV
+      const event = {
+        request,
+        waitUntil: ctx.waitUntil.bind(ctx)
+      };
+
+      const notFoundResponse = await getAssetFromKV(event, {
+        mapRequestToAsset: req => new Request(`${new URL(req.url).origin}/index.html`, req),
+        ASSET_NAMESPACE: env.__STATIC_CONTENT,
+        ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST
+      });
+
+      return new Response(notFoundResponse.body, {
+        ...notFoundResponse,
+        status: 200,
+        headers: {
+          ...notFoundResponse.headers,
+          'X-XSS-Protection': '1; mode=block',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'Referrer-Policy': 'no-referrer-when-downgrade',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    } catch (e) {
+      return new Response('Internal Error', { status: 500 });
+    }
   }
+}
+
+async function handleApiRequest(request, url, env) {
+  // Este es un placeholder para la lógica de la API
+  return new Response(JSON.stringify({ error: 'API en construcción' }), {
+    status: 501,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
