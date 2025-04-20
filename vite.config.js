@@ -39,6 +39,7 @@ export default defineConfig({
     sourcemap: process.env.NODE_ENV !== 'production',
     rollupOptions: {
       output: {
+        format: 'esm', // Cambiar a formato ESM para que funcione import.meta
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           ui: ['@headlessui/react', '@heroicons/react', 'framer-motion'],

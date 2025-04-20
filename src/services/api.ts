@@ -4,7 +4,8 @@ import { supabase } from '../config/database';
 import type { ApiResponse, HealthCheck } from '../types';
 
 const api = axios?.create ? axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: (typeof process !== 'undefined' ? process.env?.VITE_API_URL : 
+           (typeof window !== 'undefined' ? window.__ENV__?.VITE_API_URL : '/api')),
   timeout: 10000,
 }) : axios;
 

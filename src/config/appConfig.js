@@ -6,8 +6,9 @@
  */
 
 // Entorno de la aplicación
-export const isProduction = import.meta.env.PROD || false;
-export const isDevelopment = import.meta.env.DEV || true;
+export const isProduction = typeof process !== 'undefined' ? process.env?.PROD : 
+                           (typeof window !== 'undefined' ? window.__ENV__?.PROD : false);
+export const isDevelopment = !isProduction;
 
 // URLs base
 export const getBaseUrl = () => {
@@ -107,8 +108,12 @@ export const cloudflareConfig = {
 
 // Configuración de Supabase
 export const supabaseConfig = {
-  url: import.meta.env.VITE_SUPABASE_URL || 'https://phzldiaohelbyobhjrnc.supabase.co',
-  key: import.meta.env.VITE_SUPABASE_KEY || 'sbp_db5898ecc094d37ec87562399efe3833e63ab20f',
+  url: typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_URL : 
+      (typeof window !== 'undefined' ? window.__ENV__?.VITE_SUPABASE_URL : 
+      'https://phzldiaohelbyobhjrnc.supabase.co'),
+  key: typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_KEY : 
+      (typeof window !== 'undefined' ? window.__ENV__?.VITE_SUPABASE_KEY : 
+      'sbp_db5898ecc094d37ec87562399efe3833e63ab20f'),
   headers: {
     'X-Client-Info': 'abogado-wilson'
   }
@@ -116,24 +121,30 @@ export const supabaseConfig = {
 
 // Configuración de correo electrónico
 export const emailConfig = {
-  serviceId: import.meta.env.VITE_EMAIL_SERVICE_ID || 'default_service',
-  templateId: import.meta.env.VITE_EMAIL_TEMPLATE_ID || 'default_template',
-  userId: import.meta.env.VITE_EMAIL_USER_ID || 'default_user'
+  serviceId: typeof process !== 'undefined' ? process.env?.VITE_EMAIL_SERVICE_ID : 
+            (typeof window !== 'undefined' ? window.__ENV__?.VITE_EMAIL_SERVICE_ID : 'default_service'),
+  templateId: typeof process !== 'undefined' ? process.env?.VITE_EMAIL_TEMPLATE_ID : 
+             (typeof window !== 'undefined' ? window.__ENV__?.VITE_EMAIL_TEMPLATE_ID : 'default_template'),
+  userId: typeof process !== 'undefined' ? process.env?.VITE_EMAIL_USER_ID : 
+         (typeof window !== 'undefined' ? window.__ENV__?.VITE_EMAIL_USER_ID : 'default_user')
 };
 
 // Configuración de reCAPTCHA
 export const recaptchaConfig = {
-  siteKey: import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI', // Clave de prueba
+  siteKey: typeof process !== 'undefined' ? process.env?.VITE_RECAPTCHA_SITE_KEY : 
+          (typeof window !== 'undefined' ? window.__ENV__?.VITE_RECAPTCHA_SITE_KEY : '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'), // Clave de prueba
 };
 
 // Configuración de Turnstile
 export const turnstileConfig = {
-  siteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAABY3h5dF4SWQyP',
+  siteKey: typeof process !== 'undefined' ? process.env?.VITE_TURNSTILE_SITE_KEY : 
+          (typeof window !== 'undefined' ? window.__ENV__?.VITE_TURNSTILE_SITE_KEY : '0x4AAAAAAABY3h5dF4SWQyP'),
 };
 
 // URLs del API
 export const apiUrls = {
-  base: import.meta.env.VITE_API_URL || '/api',
+  base: typeof process !== 'undefined' ? process.env?.VITE_API_URL : 
+       (typeof window !== 'undefined' ? window.__ENV__?.VITE_API_URL : '/api'),
   blog: '/api/blog',
   contact: '/api/contact',
   newsletter: '/api/newsletter',

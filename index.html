@@ -6,6 +6,43 @@
   <title>Abg. Wilson Alexander Ipiales Guerron - Asesoría Legal Profesional</title>
   <meta name="description" content="Asesoría legal profesional en derecho penal, civil, tránsito, comercial y aduanas. Protegiendo sus derechos con experiencia y dedicación en Ibarra, Ecuador.">
   
+  <!-- Variables globales de entorno para compatibilidad con Cloudflare Workers -->
+  <script>
+    window.__ENV__ = {
+      PROD: true,
+      DEV: false,
+      VITE_SUPABASE_URL: 'https://phzldiaohelbyobhjrnc.supabase.co',
+      VITE_SUPABASE_KEY: 'sbp_db5898ecc094d37ec87562399efe3833e63ab20f',
+      VITE_EMAIL_SERVICE_ID: 'default_service',
+      VITE_EMAIL_TEMPLATE_ID: 'default_template',
+      VITE_EMAIL_USER_ID: 'default_user',
+      VITE_RECAPTCHA_SITE_KEY: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
+      VITE_TURNSTILE_SITE_KEY: '0x4AAAAAAABY3h5dF4SWQyP',
+      VITE_API_URL: '/api',
+      // Agregar APIs de Google - Valores reemplazados por placeholders para seguridad
+      VITE_GOOGLE_GENERATIVE_API_KEY: '{{GOOGLE_GENERATIVE_API_KEY}}',
+      VITE_GOOGLE_API_KEY_ALTERNATIVE: '{{GOOGLE_API_KEY_ALTERNATIVE}}',
+      VITE_GOOGLE_CLIENT_ID: '{{GOOGLE_CLIENT_ID}}',
+      VITE_GOOGLE_CLIENT_SECRET: '{{GOOGLE_CLIENT_SECRET}}',
+      VITE_GOOGLE_SERVICE_ACCOUNT: '{{GOOGLE_SERVICE_ACCOUNT}}'
+    };
+    
+    // Cargar variables reales desde el servidor en tiempo de ejecución
+    // Esta es una práctica más segura que hardcodear los secretos
+    fetch('/api/config')
+      .then(response => response.json())
+      .catch(() => ({})) // En caso de error, usar valores por defecto
+      .then(config => {
+        if (config) {
+          Object.keys(config).forEach(key => {
+            if (window.__ENV__[key] && window.__ENV__[key].startsWith('{{')) {
+              window.__ENV__[key] = config[key];
+            }
+          });
+        }
+      });
+  </script>
+  
   <!-- Sistema de diagnóstico y recuperación -->  
   <script>
     // Solución inmediata para favicon - evita errores 404

@@ -12,7 +12,9 @@ import { supabaseConfig, getBaseUrl, isProduction } from '../config/appConfig';
 
 // Usar la configuración centralizada
 const supabaseUrl = supabaseConfig.url;
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || supabaseConfig.key;
+const supabaseKey = (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_KEY : 
+                     (typeof window !== 'undefined' ? window.__ENV__?.VITE_SUPABASE_KEY : null)) || 
+                     supabaseConfig.key;
 
 // Determinar si estamos en un entorno con problemas CORS (Cloudflare Workers)
 const shouldUseProxyWorker = () => {
@@ -200,7 +202,8 @@ export const supabaseService = {
       console.error('Error al verificar conexión con Supabase:', error);
       
       // En entorno de desarrollo o worker, simular la conexión para permitir testing
-      if (import.meta.env.DEV || 
+      if ((typeof process !== 'undefined' ? process.env?.DEV : 
+          (typeof window !== 'undefined' ? window.__ENV__?.DEV : false)) || 
           (typeof navigator !== 'undefined' && navigator.userAgent.includes('Cloudflare'))) {
         // Solo loggear el error en consola
         console.warn('Error original:', error.message);
@@ -441,7 +444,6 @@ export const authService = {
       });
       
       if (error) throw error;
-      
       return { user: data.user, error: null };
     } catch (error) {
       console.error('Error al actualizar usuario:', error);

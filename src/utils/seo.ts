@@ -1,3 +1,11 @@
+// Definición de la interfaz SEOProps
+export interface SEOProps {
+  title: string;
+  description: string;
+  image?: string;
+  url?: string;
+}
+
 export const updateMetaTags = ({
   title,
   description,
@@ -14,7 +22,10 @@ export const updateMetaTags = ({
 
 export const initializeAnalytics = () => {
   const script = document.createElement('script');
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${import.meta.env.VITE_GOOGLE_ANALYTICS_ID}`;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${
+    (typeof process !== 'undefined' ? process.env?.VITE_GOOGLE_ANALYTICS_ID : 
+    (typeof window !== 'undefined' ? window.__ENV__?.VITE_GOOGLE_ANALYTICS_ID : 'G-DEFAULT'))
+  }`;
   script.async = true;
   document.head.appendChild(script);
 };
