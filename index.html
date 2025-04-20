@@ -6,71 +6,176 @@
   <title>Abg. Wilson Alexander Ipiales Guerron - Asesoría Legal Profesional</title>
   <meta name="description" content="Asesoría legal profesional en derecho penal, civil, tránsito, comercial y aduanas. Protegiendo sus derechos con experiencia y dedicación en Ibarra, Ecuador.">
   
-  <!-- Variables globales de entorno para compatibilidad con Cloudflare Workers -->
+  <!-- Variables globales de entorno para compatibilidad con Cloudflare Workers v2.0 -->
   <script>
+    // Configuración global - Estrictamente válida y sin errores
     window.__ENV__ = {
+      // Marcador de versión para rastreo
+      VERSION: '2.1.0',
       PROD: true,
       DEV: false,
+      
+      // Configuración de Supabase - Valores garantizados
       VITE_SUPABASE_URL: 'https://phzldiaohelbyobhjrnc.supabase.co',
       VITE_SUPABASE_KEY: 'sbp_db5898ecc094d37ec87562399efe3833e63ab20f',
+      VITE_SUPABASE_CLIENT_INSTANCE_ID: Date.now().toString(36), // ID único
+      
+      // Configuración de APIs y servicios
       VITE_EMAIL_SERVICE_ID: 'default_service',
       VITE_EMAIL_TEMPLATE_ID: 'default_template',
       VITE_EMAIL_USER_ID: 'default_user',
       VITE_RECAPTCHA_SITE_KEY: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
       VITE_TURNSTILE_SITE_KEY: '0x4AAAAAAABY3h5dF4SWQyP',
       VITE_API_URL: '/api',
-      // Agregar APIs de Google - Valores reemplazados por placeholders para seguridad
-      VITE_GOOGLE_GENERATIVE_API_KEY: '{{GOOGLE_GENERATIVE_API_KEY}}',
-      VITE_GOOGLE_API_KEY_ALTERNATIVE: '{{GOOGLE_API_KEY_ALTERNATIVE}}',
-      VITE_GOOGLE_CLIENT_ID: '{{GOOGLE_CLIENT_ID}}',
-      VITE_GOOGLE_CLIENT_SECRET: '{{GOOGLE_CLIENT_SECRET}}',
-      VITE_GOOGLE_SERVICE_ACCOUNT: '{{GOOGLE_SERVICE_ACCOUNT}}'
+      
+      // Configuración de Google APIs con valores predeterminados funcionales
+      VITE_GOOGLE_GENERATIVE_API_KEY: 'AIzaSyB9ENQXVErbIQ166m7dGwndOB6hlFj9k5I',
+      VITE_GOOGLE_API_KEY_ALTERNATIVE: 'AIzaSyBCKTfeo2P92rCk_mhrz7J73pNY4zDMBh0',
+      VITE_GOOGLE_CLIENT_ID: '387170916829-t6dp4kb7cp663ihq98as0jjju9n0ljbm.apps.googleusercontent.com',
+      VITE_GOOGLE_SERVICE_ACCOUNT: 'pruebagoogle@gen-lang-client-0663345747.iam.gserviceaccount.com',
+      
+      // Configuración anti-GoTrueClient duplicado
+      DISABLE_MULTIPLE_INSTANCES: true,
+      AUTH_STORAGE_KEY: 'supabase_auth_' + Math.random().toString(36).substring(2),
+      DISABLE_AUTH_DETECTION_IN_URL: true,
+      
+      // Flags de estado
+      CONFIG_LOADED: true,
+      CONFIG_SOURCE: 'hardcoded',
+      CONFIG_TIMESTAMP: new Date().toISOString()
     };
     
-    // Valores predeterminados para APIs de Google
-    window.__ENV__.VITE_GOOGLE_GENERATIVE_API_KEY = 'AIzaSyB9ENQXVErbIQ166m7dGwndOB6hlFj9k5I';
-    window.__ENV__.VITE_GOOGLE_API_KEY_ALTERNATIVE = 'AIzaSyBCKTfeo2P92rCk_mhrz7J73pNY4zDMBh0';
-    window.__ENV__.VITE_GOOGLE_CLIENT_ID = '387170916829-t6dp4kb7cp663ihq98as0jjju9n0ljbm.apps.googleusercontent.com';
-    window.__ENV__.VITE_GOOGLE_SERVICE_ACCOUNT = 'pruebagoogle@gen-lang-client-0663345747.iam.gserviceaccount.com';
-    
-    // Intentar cargar variables reales desde el servidor en tiempo de ejecución
-    // Con múltiples reintentos y recuperación de errores
-    const maxConfigRetries = 3;
-    let configRetryCount = 0;
-    
-    function loadConfig() {
-      if (configRetryCount >= maxConfigRetries) {
-        console.log('Usando configuración predeterminada después de múltiples intentos fallidos');
-        return;
-      }
+    // Sistema optimizado y robusto de configuración v3.0
+    // Diseñado para máxima compatibilidad con Cloudflare Workers
+    (function() {
+      // Inicialización segura y única
+      if (window.__CONFIG_INITIALIZED__) return;
+      window.__CONFIG_INITIALIZED__ = true;
       
-      configRetryCount++;
+      // Control de estado compartido
+      const configState = {
+        loaded: false,
+        retryCount: 0,        
+        maxRetries: 1,        // Reducido para minimizar errores en consola
+        configCache: null,
+        pending: false,
+        startTime: Date.now(),
+        errors: []
+      };
       
-      fetch('/api/config')
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`Error al cargar configuración: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(config => {
-          if (config) {
-            console.log('Configuración cargada correctamente');
+      // Rutas alternativas para intentar cargar la configuración
+      // Esto soluciona el problema de 404 en Cloudflare Workers
+      const CONFIG_ENDPOINTS = [
+        '/api/config',         // Endpoint principal
+        '/api/config/',        // Con slash final
+        '/config',             // Sin /api/
+        '/config.js',          // Acceso directo al archivo js
+        '/api/config.js'       // Combinación alternativa
+      ];
+      
+      // Carga de configuración con múltiples reintentos y endpoints
+      function loadConfigSecure() {
+        if (configState.loaded || configState.pending) return Promise.resolve(window.__ENV__);
+        
+        // Marcar como pendiente para evitar múltiples solicitudes
+        configState.pending = true;
+        
+        // Si ya tenemos caché, usarla para reintentos
+        if (configState.configCache && configState.retryCount > 0) {
+          console.log('Usando configuración en caché');
+          configState.pending = false;
+          return Promise.resolve(configState.configCache);
+        }
+        
+        // Cancelación automática para evitar esperas infinitas
+        const timeoutMs = 3000;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        
+        // Seleccionar el endpoint a probar en este intento
+        const endpointIndex = Math.min(configState.retryCount, CONFIG_ENDPOINTS.length - 1);
+        const endpoint = CONFIG_ENDPOINTS[endpointIndex];
+        
+        return new Promise((resolve) => {
+          console.log(`Intentando cargar configuración desde: ${endpoint}`);
+          
+          fetch(endpoint, {
+            method: 'GET',
+            cache: 'no-store',
+            signal: controller.signal,
+            headers: { 
+              'X-Client-Version': window.__ENV__.VERSION,
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache' 
+            }
+          })
+          .then(response => {
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error(`Error ${response.status}`);
+            return response.json();
+          })
+          .then(config => {
+            console.log('Configuración remota cargada correctamente');
+            
+            // Guardar en caché
+            configState.configCache = config;
+            
+            // Actualizar configuración global
             Object.keys(config).forEach(key => {
               window.__ENV__[key] = config[key];
             });
-          }
-        })
-        .catch(error => {
-          console.warn(`Intento ${configRetryCount}/${maxConfigRetries} fallido:`, error.message);
-          if (configRetryCount < maxConfigRetries) {
-            setTimeout(loadConfig, 1000 * configRetryCount);
-          }
+            
+            // Marcar como configuración cargada exitosamente
+            window.__ENV__.CONFIG_SOURCE = 'api';
+            window.__CONFIG_LOADED__ = true;
+            configState.loaded = true;
+            configState.pending = false;
+            
+            resolve(config);
+          })
+          .catch(error => {
+            clearTimeout(timeoutId);
+            const errorMsg = error.name === 'AbortError' ? 'Timeout' : error.message;
+            configState.errors.push({ endpoint, error: errorMsg });
+            
+            console.warn(`Configuración fallida (${configState.retryCount+1}/${configState.maxRetries+CONFIG_ENDPOINTS.length}): ${errorMsg}`);
+            
+            configState.retryCount++;
+            configState.pending = false;
+            
+            // Si aún hay endpoints por probar, intentarlo
+            if (configState.retryCount < CONFIG_ENDPOINTS.length) {
+              // Esperar un momento antes de intentar el siguiente endpoint
+              setTimeout(() => {
+                resolve(loadConfigSecure());
+              }, 300);
+            } 
+            // Si ya probamos todos los endpoints pero aún tenemos intentos disponibles
+            else if (configState.retryCount < CONFIG_ENDPOINTS.length + configState.maxRetries) {
+              // Intentar el primer endpoint nuevamente después de un retraso
+              setTimeout(() => {
+                resolve(loadConfigSecure());
+              }, 800);
+            }
+            // Si agotamos todos los intentos, usar configuración local
+            else {
+              console.log('Usando configuración local predeterminada');
+              window.__ENV__.CONFIG_SOURCE = 'fallback';
+              window.__ENV__.CONFIG_ERRORS = configState.errors;
+              window.__CONFIG_LOADED__ = true;
+              configState.loaded = true;
+              resolve(window.__ENV__);
+            }
+          });
         });
-    }
-    
-    // Iniciar carga de configuración
-    loadConfig();
+      }
+      
+      // Iniciar carga de configuración inmediatamente
+      loadConfigSecure().then(() => {
+        const loadTime = Date.now() - configState.startTime;
+        console.log(`Configuración finalizada en ${loadTime}ms, fuente: ${window.__ENV__.CONFIG_SOURCE}`);
+      });
+    })();
   </script>
   
   <!-- Sistema de diagnóstico y recuperación -->  
@@ -254,63 +359,179 @@
     })();
   </script>
   
-  <!-- Spinner de carga que se mostrará mientras la aplicación se inicializa -->
+  <!-- Sistema de carga optimizado con pre-renderizado y recuperación automática v2.1 -->
+  <style>
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); opacity: 0.8; }
+    }
+    @keyframes slide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .shimmer {
+      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 100%);
+      animation: slide 1.5s infinite;
+    }
+    #fallback-content {
+      display: none; /* Inicialmente oculto */
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+  </style>
+  
+  <!-- Contenedor principal que siempre está visible mientras se carga la app -->
   <div id="initial-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100%; position: fixed; top: 0; left: 0; background-color: white; z-index: 1000;">
     <img src="/favicon.svg" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 20px; animation: pulse 1.5s infinite;">
     <h2 style="color: #3457dc; margin-bottom: 10px;">Abogado Wilson</h2>
-    <p style="color: #666; margin-bottom: 30px;">Cargando servicios legales...</p>
-    <div style="width: 200px; height: 4px; background-color: #f0f0f0; border-radius: 2px; overflow: hidden;">
+    <p id="loader-message" style="color: #666; margin-bottom: 30px;">Cargando servicios legales...</p>
+    <div style="width: 240px; height: 4px; background-color: #f0f0f0; border-radius: 2px; overflow: hidden; position: relative;">
       <div id="progress-bar" style="width: 0%; height: 100%; background-color: #3457dc; border-radius: 2px; transition: width 0.3s ease-in-out;"></div>
+      <div class="shimmer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></div>
+    </div>
+    
+    <!-- Contenido de fallback visible si la app no carga -->
+    <div id="fallback-content" style="margin-top: 40px; text-align: center; max-width: 90%; width: 500px;">
+      <h3 style="color: #3457dc; margin-bottom: 20px;">Estamos teniendo dificultades técnicas</h3>
+      <p style="margin-bottom: 20px;">Por favor, intente recargar la página o contacte al Abg. Wilson Ipiales.</p>
+      <div style="margin-bottom: 15px;">
+        <p><strong>Contacto directo:</strong> <a href="https://wa.me/593988352269" style="color: #3457dc; text-decoration: none;">+593988352269 (WhatsApp)</a></p>
+      </div>
+      <button id="retry-button" style="background-color: #3457dc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Reintentar</button>
     </div>
   </div>
   
+  <!-- Contenedor para la aplicación React -->
   <div id="root"></div>
   
-  <!-- Script para simular progreso de carga -->
+  <!-- Sistema optimizado de carga y recuperación -->
   <script>
     (function() {
-      let progress = 0;
+      // Variables globales para seguimiento
+      window.__APP_STATE__ = {
+        loadStartTime: Date.now(),
+        loadingStage: 'initial',
+        progressValue: 0,
+        errorCount: 0,
+        retryCount: 0
+      };
+      
+      // Elementos DOM
       const progressBar = document.getElementById('progress-bar');
       const loader = document.getElementById('initial-loader');
+      const message = document.getElementById('loader-message');
+      const fallbackContent = document.getElementById('fallback-content');
+      const retryButton = document.getElementById('retry-button');
       
-      // Actualizar barra de progreso gradualmente
-      const interval = setInterval(() => {
-        if (progress < 90) {
-          progress += Math.random() * 10;
-          progressBar.style.width = `${Math.min(progress, 90)}%`;
+      // Mensajes de carga personalizados
+      const loadingMessages = [
+        'Cargando servicios legales...',
+        'Preparando asesoría jurídica...',
+        'Optimizando experiencia de usuario...',
+        'Casi listo...',
+        'Finalizando...',
+      ];
+      
+      // Sistema de progreso inteligente
+      let currentMessage = 0;
+      let progress = 0;
+      
+      function updateProgress(increment, stage) {
+        progress = Math.min(progress + increment, 95); // Nunca llegar al 100% hasta carga completa
+        progressBar.style.width = `${progress}%`;
+        window.__APP_STATE__.progressValue = progress;
+        
+        if (stage && stage !== window.__APP_STATE__.loadingStage) {
+          window.__APP_STATE__.loadingStage = stage;
+          message.textContent = loadingMessages[Math.min(currentMessage, loadingMessages.length - 1)];
+          currentMessage++;
         }
-      }, 300);
+      }
       
-      // Ocultar loader cuando la aplicación esté lista
+      // Iniciar actualización periódica de progreso
+      const progressInterval = setInterval(() => {
+        // Incremento aleatorio pero ponderado según progreso actual
+        const increment = Math.max(0.5, Math.random() * (10 - progress/10));
+        updateProgress(increment);
+      }, 400);
+      
+      // Actualizar mensajes de forma periódica
+      const messageInterval = setInterval(() => {
+        if (currentMessage < loadingMessages.length) {
+          message.textContent = loadingMessages[currentMessage];
+          currentMessage++;
+        }
+      }, 3000);
+      
+      // Evento de carga completa
       window.addEventListener('load', () => {
-        progress = 100;
+        updateProgress(100, 'complete');
         progressBar.style.width = '100%';
         
+        // Verificar si la aplicación se cargó exitosamente
         setTimeout(() => {
-          clearInterval(interval);
-          loader.style.opacity = '0';
-          loader.style.transition = 'opacity 0.5s ease-in-out';
-          
-          setTimeout(() => {
-            loader.style.display = 'none';
-          }, 500);
-        }, 500);
+          const root = document.getElementById('root');
+          if (root.childNodes.length > 0) {
+            // La aplicación se ha cargado correctamente
+            clearInterval(progressInterval);
+            clearInterval(messageInterval);
+            
+            loader.style.opacity = '0';
+            loader.style.transition = 'opacity 0.6s ease-in-out';
+            
+            setTimeout(() => {
+              loader.style.display = 'none';
+            }, 600);
+          }
+        }, 1000);
       });
       
-      // Sistema de seguridad: si después de 10 segundos no se ha cargado, mostrar error
+      // Sistema de recuperación avanzado
+      function activateRecoveryMode(errorReason) {
+        window.__APP_STATE__.errorCount++;
+        console.warn(`Activando modo de recuperación. Razón: ${errorReason}`);
+        
+        // Cambiar estilo del progressBar para indicar error
+        progressBar.style.backgroundColor = '#dc3545';
+        message.textContent = 'Error al cargar. Preparando recuperación...'; 
+        message.style.color = '#dc3545';
+        
+        // Si es el primer error, intentar recuperación automática
+        if (window.__APP_STATE__.errorCount <= 1) {
+          setTimeout(() => {
+            console.log('Intentando recuperación automática...');
+            window.location.reload();
+          }, 3000);
+        } else {
+          // Mostrar contenido de fallback con botón para reintentar
+          fallbackContent.style.display = 'block';
+          setTimeout(() => {
+            fallbackContent.style.opacity = '1';
+          }, 100);
+          
+          // Configurar botón de reintento
+          retryButton.addEventListener('click', () => {
+            window.location.reload();
+          });
+        }
+      }
+      
+      // Detector de timeout (15 segundos sin cargar la aplicación)
       setTimeout(() => {
         const root = document.getElementById('root');
         if (!root.hasChildNodes() && loader.style.display !== 'none') {
-          console.error('Timeout alcanzado. Activando modo de recuperación...');
-          progressBar.style.backgroundColor = '#dc3545';
-          document.querySelector('#initial-loader p').textContent = 'Error al cargar. Intentando recuperación...'; 
-          
-          // Intentar reinicio de la aplicación
-          setTimeout(() => {
-            window.location.reload();
-          }, 3000);
+          activateRecoveryMode('timeout');
         }
-      }, 10000);
+      }, 15000);
+      
+      // Detector de errores global
+      window.addEventListener('error', function(e) {
+        if (e.message && (e.message.includes('TypeError') || e.message.includes('network') || 
+            e.message.includes('undefined') || e.message.includes('null'))) {
+          activateRecoveryMode(`JS error: ${e.message.substring(0, 50)}...`);
+        }
+      });
     })();
   </script>
   

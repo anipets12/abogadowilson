@@ -1,1 +1,33 @@
-{\n  \"version\": 1,\n  \"include\": [\n    \"/*\"\n  ],\n  \"exclude\": [],\n  \"routes\": [\n    {\n      \"src\": \"/(.*)\\\\.(.*)$\",\n      \"dest\": \"/$1.$2\"\n    },\n    {\n      \"src\": \"/(.*)\",\n      \"dest\": \"/index.html\"\n    }\n  ]\n}
+{
+  "version": 1,
+  "include": [
+    "/*"
+  ],
+  "exclude": [],
+  "routes": [
+    {
+      "src": "/api/config",
+      "dest": "/api/config"
+    },
+    {
+      "src": "/api/config/(.*)",
+      "dest": "/api/config"
+    },
+    {
+      "src": "/api/proxy",
+      "dest": "/api/proxy"
+    },
+    {
+      "src": "/api/proxy/(.*)",
+      "dest": "/api/proxy?url=$1"
+    },
+    {
+      "src": "/(.*)\\.(.*)$",
+      "dest": "/$1.$2"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}

@@ -199,62 +199,81 @@ const createFallbackClient = () => {
   };
 };
 
-// Función para crear un cliente Supabase singleton con bloqueo para evitar múltiples instancias
+/**
+ * Función mejorada para crear un cliente Supabase singleton con sistema anti-duplicación de instancias
+ * Solución definitiva para el problema de "Multiple GoTrueClient instances"
+ */
 export const getSupabaseClient = () => {
-  // Incrementar contador para diagnóstico
-  initCallCount++;
+  // Acceder a configuración global (si existe)
+  const globalConfig = typeof window !== 'undefined' ? window.__ENV__ : {};
   
-  // Si ya tenemos una instancia, devolverla inmediatamente
+  // Prevenir completamente múltiples instancias si la configuración global lo indica
+  if (typeof window !== 'undefined' && window.GLOBAL_SUPABASE_CLIENT) {
+    return window.GLOBAL_SUPABASE_CLIENT;
+  }
+  
+  // Si ya tenemos una instancia local, devolverla inmediatamente
   if (supabaseClientInstance) {
     return supabaseClientInstance;
   }
   
-  // Si ya hay un proceso de inicialización en curso, esperar y devolver fallback temporal
+  // Generar un identificador único para esta instancia
+  const instanceId = globalConfig.VITE_SUPABASE_CLIENT_INSTANCE_ID || 
+                    Date.now().toString(36) + Math.random().toString(36).substring(2);
+  
+  // Si ya hay un proceso de inicialización en curso, devolver cliente temporal para evitar bloqueo
   if (isInitializing) {
-    console.warn(`Intento de inicialización paralela detectado (#${initCallCount}). Usando cliente temporal.`);
-    return {
-      auth: {
-        getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-        onAuthStateChange: () => ({ data: null, error: null, subscription: { unsubscribe: () => {} } }),
-        signOut: () => Promise.resolve({}),
-        // Otras funciones auth como placeholders
-      },
-      // Otras funciones del cliente como placeholders
-      from: () => ({ select: () => Promise.resolve({ data: [], error: null }) })
-    };
+    console.warn(`Acceso paralelo a Supabase cliente detectado. Devolviendo cliente temporal.`);
+    return createFallbackClient(true); // Cliente temporal
   }
   
   try {
-    // Marcar que estamos inicializando
+    // Establecer flag para evitar inicializaciones simultáneas
     isInitializing = true;
-    console.log(`Creando nueva instancia de Supabase client (llamada #${initCallCount})`);
     
-    // Crear opciones con configuración optimizada
+    // Configurar opciones de autenticación optimizadas para Cloudflare Workers
     const options = getSupabaseOptions();
     
-    // IMPORTANTE: Desactivar completamente detectSessionInUrl para evitar múltiples instancias
+    // SOLUCIÓN CLAVE: Configuración anti-duplicación de GoTrueClient
     options.auth = options.auth || {};
-    options.auth.detectSessionInUrl = false;
+    options.auth.detectSessionInUrl = false; // Desactivar detección automática en URL
     options.auth.persistSession = true;
-    options.auth.storageKey = 'sb-auth-token-' + Math.random().toString(36).substring(2, 7);
+    
+    // Utilizar clave de almacenamiento única para esta instancia
+    // Esto evita conflictos con múltiples instancias de GoTrueClient
+    options.auth.storageKey = globalConfig.AUTH_STORAGE_KEY || 
+                             `sb-auth-token-${instanceId}`;
+    
+    console.log(`Inicializando Supabase client único [ID: ${instanceId.substring(0,8)}]`);
     
     // Crear cliente una sola vez
     supabaseClientInstance = createClient(supabaseUrl, supabaseKey, options);
     
-    // Desactivar listeners automáticos que pueden causar problemas
+    // Almacenar globalmente para acceso compartido seguro
     if (typeof window !== 'undefined') {
+      window.GLOBAL_SUPABASE_CLIENT = supabaseClientInstance;
       window.SUPABASE_CLIENT_INITIALIZED = true;
+      window.SUPABASE_CLIENT_INSTANCE_ID = instanceId;
     }
     
-    // Liberamos el flag de inicialización
+    // Monitorear el ciclo de vida de la aplicación para prevenir problemas
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        // Limpiar referencias antes de descargar la página
+        window.GLOBAL_SUPABASE_CLIENT = null;
+        window.SUPABASE_CLIENT_INITIALIZED = false;
+      });
+    }
+    
+    // Liberar flag de inicialización
     isInitializing = false;
     
     return supabaseClientInstance;
   } catch (error) {
-    console.error('Error al crear cliente de Supabase:', error);
+    console.error('Error crítico al crear cliente Supabase:', error);
     isInitializing = false;
     
-    // En caso de error, retornar un cliente con métodos de simulación para evitar fallos en la aplicación
+    // En caso de error, crear un cliente simulado que no cause errores
     return createFallbackClient();
   }
 };
