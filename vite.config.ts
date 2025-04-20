@@ -17,13 +17,18 @@ export default defineConfig({
     react({
       // Configuración para incluir automáticamente React en todos los componentes
       jsxRuntime: 'automatic',
+      jsxImportSource: 'react',
       babel: {
         plugins: [
-          '@babel/plugin-transform-react-jsx'
+          '@babel/plugin-transform-react-jsx',
+          ['@babel/plugin-transform-runtime', { regenerator: true }]
         ],
         presets: [
           '@babel/preset-env',
-          ['@babel/preset-react', { runtime: 'automatic' }],
+          ['@babel/preset-react', { 
+            runtime: 'automatic',
+            importSource: 'react' 
+          }],
           '@babel/preset-typescript'
         ]
       }

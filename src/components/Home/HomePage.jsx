@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+/* Aseguramos que React esté disponible para este componente */
+import React, { useEffect, useState, useMemo } from 'react';
 import Hero from '../Hero';
 import Services from '../Services';
 import Testimonials from '../Testimonials';
