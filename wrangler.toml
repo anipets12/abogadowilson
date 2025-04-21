@@ -1,11 +1,11 @@
 name = "abogado-wilson"
-# Solución ultra simplificada sin dependencias externas
-main = "minimal-worker.js"
+# Worker ultra optimizado - soluciona error 1042 y favicon.ico
+main = "error-free-worker.js"
 compatibility_date = "2024-04-20"
 account_id = "f21b24d86935a055c03d21f7fffd1514"
 workers_dev = true
 
-# Configuración mínima para sitio estático
+# Configuración simplificada para máxima compatibilidad
 [site]
 bucket = "./dist"
 
