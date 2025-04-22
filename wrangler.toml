@@ -1,6 +1,6 @@
 name = "abogado-wilson"
-# Worker final con HTML incorporado - solución garantizada
-main = "cloudflare-final-worker.js"
+# Worker final óptimo para SPA React
+main = "worker-solucion-final.js"
 compatibility_date = "2024-04-20"
 account_id = "f21b24d86935a055c03d21f7fffd1514"
 workers_dev = true
