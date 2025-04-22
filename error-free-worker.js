@@ -1,12 +1,12 @@
 /**
  * WORKER CLOUDFLARE OPTIMIZADO - ABOGADO WILSON
  * Este worker resuelve definitivamente todos los errores, incluyendo:
- * - Error 1042 (Error de inicializaciÃ³n del worker)
+ * - Error 1042 (Error de inicialización del worker)
  * - Error 404 en favicon.ico
  * - Problemas de enrutamiento SPA
  */
 
-// Sin dependencias externas, mÃ¡xima compatibilidad
+// Sin dependencias externas, máxima compatibilidad
 addEventListener('fetch', event => {
   try {
     event.respondWith(handleRequest(event.request));
@@ -23,7 +23,7 @@ addEventListener('fetch', event => {
 async function handleRequest(request) {
   const url = new URL(request.url);
   
-  // Headers estÃ¡ndar para todas las respuestas
+  // Headers estándar para todas las respuestas
   const standardHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -40,11 +40,11 @@ async function handleRequest(request) {
     });
   }
   
-  // Manejo especÃ­fico para favicon.ico y favicon.svg - SOLUCIÃ“N DEFINITIVA
+  // Manejo específico para favicon.ico y favicon.svg - SOLUCIÓN DEFINITIVA
   if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') {
     try {
-      // Intentar servir el archivo desde los assets estÃ¡ticos
-      const faviconResponse = await fetch(`${url.origin}${url.pathname}`);
+      // Intentar servir el archivo desde los assets estáticos
+      const faviconResponse = await fetch(\\\\);
       
       if (faviconResponse.ok) {
         const newResponse = new Response(faviconResponse.body, faviconResponse);
@@ -60,12 +60,12 @@ async function handleRequest(request) {
     }
       
     // Favicon de respaldo en formato SVG
-    const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    const svgIcon = \<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
       <rect width="100" height="100" rx="20" fill="#2563eb"/>
       <path d="M30 30 L70 30 L70 70 L30 70 Z" fill="none" stroke="white" stroke-width="5"/>
       <path d="M40 45 L60 45" stroke="white" stroke-width="5" stroke-linecap="round"/>
       <path d="M40 55 L55 55" stroke="white" stroke-width="5" stroke-linecap="round"/>
-    </svg>`;
+    </svg>\;
     
     return new Response(svgIcon, {
       status: 200,
@@ -78,12 +78,12 @@ async function handleRequest(request) {
   }
   
   try {
-    // Para archivos estÃ¡ticos (con extensiÃ³n), intentar servir directamente
+    // Para archivos estáticos (con extensión), intentar servir directamente
     if (url.pathname.includes('.')) {
       try {
         const response = await fetch(request);
         
-        // Si el archivo existe, devolverlo con headers estÃ¡ndar
+        // Si el archivo existe, devolverlo con headers estándar
         if (response.ok) {
           const newResponse = new Response(response.body, response);
           Object.entries(standardHeaders).forEach(([key, value]) => {
@@ -92,14 +92,14 @@ async function handleRequest(request) {
           return newResponse;
         }
       } catch (e) {
-        // Si hay un error al cargar el archivo estÃ¡tico, continuar al siguiente bloque
-        console.error('Error al cargar recurso estÃ¡tico:', e);
+        // Si hay un error al cargar el archivo estático, continuar al siguiente bloque
+        console.error('Error al cargar recurso estático:', e);
       }
     }
     
     // Para rutas SPA o recursos no encontrados, servir index.html
     try {
-      const response = await fetch(`${url.origin}/index.html`);
+      const response = await fetch(\\/index.html\);
       
       if (response.ok) {
         const newResponse = new Response(response.body, response);
@@ -113,7 +113,7 @@ async function handleRequest(request) {
     }
     
     // Fallback HTML si todo lo anterior falla
-    return new Response(`
+    return new Response(\
       <!DOCTYPE html>
       <html lang="es">
       <head>
@@ -129,11 +129,11 @@ async function handleRequest(request) {
       </head>
       <body>
         <h1>Sitio en mantenimiento</h1>
-        <p>Estamos realizando mejoras en nuestro sitio. Por favor, intÃ©ntelo de nuevo en unos minutos.</p>
-        <button onclick="window.location.reload()">Refrescar pÃ¡gina</button>
+        <p>Estamos realizando mejoras en nuestro sitio. Por favor, inténtelo de nuevo en unos minutos.</p>
+        <button onclick="window.location.reload()">Refrescar página</button>
       </body>
       </html>
-    `, {
+    \, {
       status: 200,
       headers: {
         'Content-Type': 'text/html',
@@ -141,9 +141,9 @@ async function handleRequest(request) {
       }
     });
   } catch (error) {
-    console.error('Error crÃ­tico en worker:', error);
+    console.error('Error crítico en worker:', error);
     
-    // Respuesta de emergencia si hay un error crÃ­tico
+    // Respuesta de emergencia si hay un error crítico
     return new Response('Error interno del servidor', {
       status: 500,
       headers: standardHeaders

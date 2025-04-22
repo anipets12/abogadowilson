@@ -25,7 +25,3 @@ SUPABASE_URL = "https://phzldiaohelbyobhjrnc.supabase.co"
 SUPABASE_KEY = "sbp_db5898ecc094d37ec87562399efe3833e63ab20f"
 CLIENT_VERSION = "3.0.0"
 DISABLE_MULTIPLE_CLIENTS = "true"
-
-# Configuración de build
-[build]
-command = "npm run build"

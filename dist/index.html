@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abogado Wilson | Asesoría Legal Profesional</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --text: #1f2937;
+            --background: #f9fafb;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1rem;
+        }
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .hero {
+            padding: 3rem 1rem;
+            text-align: center;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+        p {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto 1.5rem;
+        }
+        .button {
+            display: inline-block;
+            background-color: var(--primary);
+            color: white;
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            text-decoration: none;
+            transition: background-color 0.2s;
+        }
+        .button:hover {
+            background-color: var(--primary-dark);
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .feature-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        footer {
+            background-color: var(--primary);
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">Abogado Wilson</div>
+            <nav>
+                <a href="/" style="margin-left: 1rem; color: var(--text); text-decoration: none;">Inicio</a>
+                <a href="/servicios" style="margin-left: 1rem; color: var(--text); text-decoration: none;">Servicios</a>
+                <a href="/contacto" style="margin-left: 1rem; color: var(--text); text-decoration: none;">Contacto</a>
+            </nav>
+        </div>
+    </header>
+    
+    <main>
+        <section class="hero">
+            <h1>Abogado Wilson</h1>
+            <p>Asesoría legal profesional para proteger tus derechos e intereses. Contamos con amplia experiencia en derecho civil, penal, laboral y más.</p>
+            <a href="/contacto" class="button">Consulta Gratuita</a>
+        </section>
+        
+        <section class="features">
+            <div class="feature-card">
+                <h2 style="color: var(--primary); margin-bottom: 1rem;">Derecho Civil</h2>
+                <p style="font-size: 1rem; margin-bottom: 0;">Contratos, propiedad, sucesiones y resolución de conflictos civiles con enfoque en resultados.</p>
+            </div>
+            <div class="feature-card">
+                <h2 style="color: var(--primary); margin-bottom: 1rem;">Derecho Penal</h2>
+                <p style="font-size: 1rem; margin-bottom: 0;">Defensa completa en procesos penales, con estrategias eficaces y respeto a tus derechos.</p>
+            </div>
+            <div class="feature-card">
+                <h2 style="color: var(--primary); margin-bottom: 1rem;">Derecho Laboral</h2>
+                <p style="font-size: 1rem; margin-bottom: 0;">Protección a trabajadores y asesoría a empresas en cumplimiento de normativas laborales.</p>
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <p style="margin-bottom: 0.5rem;">&copy; 2025 Abogado Wilson - Todos los derechos reservados</p>
+        <p style="font-size: 0.875rem;">Contacto: info@abogadowilson.com | Tel: (123) 456-7890</p>
+    </footer>
+</body>
+</html>
