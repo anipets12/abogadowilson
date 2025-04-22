@@ -1,6 +1,6 @@
 name = "abogado-wilson"
-# Worker ultra optimizado - soluciona error 1042 y favicon.ico
-main = "cloudflare-fixed-worker.js"
+# Worker final con HTML incorporado - solución garantizada
+main = "cloudflare-final-worker.js"
 compatibility_date = "2024-04-20"
 account_id = "f21b24d86935a055c03d21f7fffd1514"
 workers_dev = true
